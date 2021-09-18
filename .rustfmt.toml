@@ -1,0 +1,4 @@
+fn_single_line = true
+max_width = 80
+where_single_line = true
+tab_spaces = 2

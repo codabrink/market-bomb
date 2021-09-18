@@ -1,0 +1,66 @@
+name: Trader
+version: '1.0'
+author: Dakota B.
+about: It does something
+args:
+  - verbose:
+      about: Verbose mode
+      short: v
+      long: verbose
+subcommands:
+  - test:
+  - train:
+      about: Export frame data to csv files (for training)
+      version: "0.0.1"
+      args:
+        - interval:
+            short: i
+            long: interval
+            value_name: INTERVAL
+            takes_value: true
+            about: Candle duration. Defaults to "15m".
+        - symbol:
+            short: s
+            long: symbol
+            value_name: SYMBOL
+            takes_value: true
+            about: Market to analyze. Defaults to "BTCUSDT".
+  - predict_now:
+      about: Export frame data to csv files (for training)
+      version: "0.0.1"
+      args:
+        - interval:
+            short: i
+            long: interval
+            value_name: INTERVAL
+            takes_value: true
+            about: Candle duration. Defaults to "15m".
+        - symbol:
+            short: s
+            long: symbol
+            value_name: SYMBOL
+            takes_value: true
+            about: Market to analyze. Defaults to "BTCUSDT".
+  - predict:
+      about: Export frame data to csv files (for training)
+      version: "0.0.1"
+      args:
+        - relative_time:
+            short: r
+            long: relative
+            value_name: RELATIVE
+            takes_value: true
+            required: true
+            about: Relative time from now (-1h, -8h, -15m, etc...)
+        - interval:
+            short: i
+            long: interval
+            value_name: INTERVAL
+            takes_value: true
+            about: Candle duration. Defaults to "15m".
+        - symbol:
+            short: s
+            long: symbol
+            value_name: SYMBOL
+            takes_value: true
+            about: Market to analyze. Defaults to "BTCUSDT".

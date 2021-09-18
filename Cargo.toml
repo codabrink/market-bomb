@@ -1,0 +1,40 @@
+[package]
+authors = ["Dakota Brink <779390+codabrink@users.noreply.github.com>"]
+edition = "2018"
+name = "market_bomb"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+# [profile.dev]
+# opt-level = 3
+
+
+[dependencies]
+actix-web = "3"
+crossbeam = "0.8"
+bencher = "0.1.5"
+chrono = {version = "0.4.19", features = ["serde"]}
+env_logger = "0.8.2"
+indicatif = "0.16"
+lazy_static = "1.4.0"
+libmath = "0.2.1"
+log = "0.4.8"
+num_cpus = "1.13"
+postgres = "0.19"
+qstring = "0.7.2"
+r2d2 = "0.8"
+r2d2_postgres = "0.18"
+rayon = "1.5"
+regex = "1"
+serde = {version = "1", features = ["derive", "rc"]}
+serde_json = "1"
+threadpool = "1.8.1"
+ureq = {version = "2", features = ["json"]}
+walkdir = "2.3.1"
+toml = "0.5.8"
+anyhow = "1"
+tensorflow = "0.17"
+tui = "0.16"
+termion = "1.5"

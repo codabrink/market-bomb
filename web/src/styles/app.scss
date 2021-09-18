@@ -1,0 +1,39 @@
+html,
+body,
+#root {
+  background-color: #282c34;
+  box-sizing: border-box;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+.axis {
+  color: white;
+}
+
+.tooltip {
+  position: absolute;
+}
+
+.candle {
+  cursor: pointer;
+  &:hover {
+    stroke: black;
+  }
+}
+
+.arrow {
+  cursor: pointer;
+}
+.line {
+  cursor: pointer;
+  &:hover {
+    opacity: 0.5;
+  }
+}
