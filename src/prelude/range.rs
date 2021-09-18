@@ -21,7 +21,7 @@ impl MarketBombRange<Range<i64>> for Range<i64> {
   }
   fn chunk(&self, step: i64, n: usize) -> Vec<Range<i64>> {
     let mut result = vec![];
-    for i in (self.start..self.end).step_by(step as usize) {
+    for i in (self.start..self.end).step_by(step as usize * n) {
       result.push(i..(i + step).min(self.end))
     }
     result
