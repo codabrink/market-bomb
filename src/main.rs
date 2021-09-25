@@ -9,14 +9,12 @@ mod prelude;
 mod api;
 mod config;
 mod core;
-mod data;
 pub mod database;
 mod frame;
 mod terminal;
 mod web_server;
 
 use anyhow::Result;
-use frame::Frame;
 use indicatif::ProgressBar;
 use prelude::*;
 use std::fs;

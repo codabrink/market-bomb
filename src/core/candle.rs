@@ -1,4 +1,4 @@
-use crate::{data, prelude::*};
+use crate::prelude::*;
 use anyhow::Result;
 use postgres::Row;
 use serde::{Deserialize, Serialize};
@@ -34,9 +34,9 @@ pub fn build_domain(con: &mut DbCon, query: &Query) -> Result<()> {
     query.interval
   );
   let mut candles = query.query_candles()?;
-  let pb = data::progress_bar(candles.len() as i64);
+  // let pb = data::progress_bar(candles.len() as i64);
 
-  pb.finish_and_clear();
+  // pb.finish_and_clear();
   log!("Saving..");
 
   for i in 0..candles.len() {

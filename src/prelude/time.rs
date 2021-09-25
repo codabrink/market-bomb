@@ -34,7 +34,7 @@ impl AgoToMs for &str {
       _ => (),
     };
 
-    to_ms(&Utc.ymd(y, m, d).and_hms(h, 0, 0), "15m")
+    to_ms(&Utc.ymd(y, m, d).and_hms(h, 0, 0), "15m".to_step()?)
   }
 }
 
