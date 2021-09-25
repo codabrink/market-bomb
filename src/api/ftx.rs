@@ -1,1 +1,1 @@
-struct FTX {}
+// struct FTX {}

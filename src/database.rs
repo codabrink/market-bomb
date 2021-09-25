@@ -1,4 +1,4 @@
-use crate::{api::*, chart::Candle, data::*};
+use crate::{chart::Candle, data::*};
 use anyhow::Result;
 use std::{ops::Range, process::Command, sync::RwLock};
 
@@ -106,8 +106,8 @@ impl MyDbCon for DbCon {
     };
     query.push_str(format!(" LIMIT {}", limit).as_str());
 
-    // println!("{}", query.as_str());
-    // println!("{:?}", &params);
+    // log!("{}", query.as_str());
+    // log!("{:?}", &params);
     let rows = self.query(query.as_str(), &params)?;
     Ok(rows.iter().enumerate().map(Candle::from).collect())
   }
@@ -129,8 +129,7 @@ impl MyDbCon for DbCon {
   FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
   WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5);",
               &[&start, &end, &step, &symbol, &interval],
-          )
-          .unwrap();
+          )?;
 
     let missing: Vec<i64> = rows.iter().map(|i| i.get(0)).collect();
 
@@ -162,35 +161,33 @@ impl MyDbCon for DbCon {
     _out.push_str(out.as_str());
 
     let p = format!("/tmp/pg_copy/{}-{}.csv", symbol, interval);
-    let path = Path::new(&p).to_str().unwrap();
-    fs::write(path, out).unwrap();
-    self.batch_execute("delete from import_candles;").unwrap();
+    let path = Path::new(&p);
+    fs::write(path, out)?;
+    self.batch_execute("delete from import_candles;")?;
     Command::new("psql")
       .arg("-d")
       .arg(db())
       .arg("-c")
       .arg(&*format!(
         r#"\copy import_candles({header}) FROM '{csv_path}' CSV DELIMITER E'\t' QUOTE '"' ESCAPE '\';"#,
-        header = header, csv_path = path
+        header = header, csv_path = path.to_str().unwrap()
       ))
       .output()
       .expect("Failed to copy in candles");
 
-    self
-      .batch_execute(
-        format!(
-          "
+    self.batch_execute(
+      format!(
+        "
   DELETE FROM candles WHERE
   open_time IN (SELECT open_time FROM import_candles)
   AND symbol = '{symbol}' AND interval = '{interval}';
   INSERT INTO candles SELECT * FROM import_candles;
   ",
-          symbol = symbol,
-          interval = interval
-        )
-        .as_str(),
+        symbol = symbol,
+        interval = interval
       )
-      .unwrap();
+      .as_str(),
+    )?;
 
     Ok(())
   }
@@ -243,7 +240,7 @@ fn db() -> String { DATABASE.read().unwrap().clone() }
 
 fn init_pool() -> DbPool {
   if !database_exists() {
-    println!("Database '{}' not found", db());
+    log!("Database '{}' not found", db());
     create_db().expect("Could not create database");
     migrate().expect("Could not migrate database");
   }
@@ -273,7 +270,7 @@ pub fn create_db() -> Result<()> {
   print!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?
     .batch_execute(format!("CREATE DATABASE {};", db()).as_str())?;
-  println!("Done");
+  log!("Done");
   Ok(())
 }
 
@@ -309,7 +306,7 @@ CREATE TABLE candles (
 );
 CREATE TABLE import_candles AS TABLE candles WITH NO DATA;",
   )?;
-  println!("Done");
+  log!("Done");
   Ok(())
 }
 
@@ -348,7 +345,7 @@ pub fn calculate_all_ma(con: &mut DbCon, interval: &str) -> Result<()> {
 }
 
 pub fn calculate_domain(con: &mut DbCon, interval: &str) -> Result<()> {
-  println!("Calculating domain for... {}", interval);
+  log!("Calculating domain for... {}", interval);
   let step = interval.to_step()?;
   con.execute(
     "

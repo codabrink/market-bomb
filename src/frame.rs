@@ -25,7 +25,7 @@ impl<'a> Frame<'a> {
     let step = interval.to_step()?;
 
     assert!(ms == round(ms, step));
-    println!("Frame time: {}", ms_to_human(&ms));
+    log!("Frame time: {}", ms_to_human(&ms));
 
     // First grab the detail candles (custom query)
     // Then grab strong points that are before (custom query)
@@ -85,7 +85,7 @@ impl<'a> Frame<'a> {
     let dy = first_dc.open_y() - last_sp.y;
     let sp_detail_delta = (dx as f32, dy);
 
-    println!(
+    log!(
       "=============================CLOSE: {}",
       detail_candles.last().unwrap().close
     );
@@ -182,9 +182,10 @@ impl<'a> Frame<'a> {
 
     let prediction_price = self.close + ml_output * self.dy_max;
 
-    println!(
+    log!(
       "At {} the price will be {}",
-      prediction_time_human, prediction_price
+      prediction_time_human,
+      prediction_price
     );
 
     Ok(())

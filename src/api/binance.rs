@@ -25,7 +25,7 @@ impl ApiTrait for Binance {
 
     let mut fetch = |start: i64, end: i64| -> Result<()> {
       // if ARGS.is_present("verbose") {
-      // println!("Fetching: {} to {}", start, end);
+      // log!("Fetching: {} to {}", start, end);
       // }
 
       let url = format!(
@@ -40,7 +40,7 @@ impl ApiTrait for Binance {
       let raw_candles: Vec<RawCandle> = serde_json::from_str(&body)?;
 
       // if ARGS.is_present("verbose") {
-      // println!("Api responded with {} candles", raw_candles.len());
+      // log!("Api responded with {} candles", raw_candles.len());
       // }
 
       candles.extend(
@@ -97,11 +97,10 @@ impl FromRawCandle<Candle> for Candle {
 
 #[cfg(test)]
 mod tests {
-  use crate::api::binance::*;
   #[test]
   fn test_api_is_inclusive() -> anyhow::Result<()> {
-    let fifteen_minutes = "15m".to_step()?;
-    let b = Binance::new();
+    // TODO: implement
+    assert!(false);
     // b.fetch_candles();
 
     Ok(())

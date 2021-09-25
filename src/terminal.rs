@@ -2,7 +2,7 @@ mod command;
 
 use crate::prelude::*;
 use anyhow::Result;
-use std::{io, thread, time::Duration};
+use std::{collections::VecDeque, io, thread, time::Duration};
 use termion::{
   event::Key,
   input::{MouseTerminal, TermRead},
@@ -12,8 +12,7 @@ use termion::{
 use tui::{
   backend::TermionBackend,
   layout::{Constraint, Direction, Layout},
-  style::{Color, Modifier, Style},
-  text::{Span, Spans, Text},
+  style::Style,
   widgets::{Block, Borders, List, ListItem, Paragraph},
   Terminal as TuiTerminal,
 };
@@ -23,9 +22,12 @@ enum Event<I> {
   Tick,
 }
 
+lazy_static! {
+  pub static ref LOG: (Sender<String>, Receiver<String>) = unbounded();
+}
+
 pub fn log(msg: impl AsRef<str>) {
-  let msg = msg.as_ref();
-  // todo: actually log
+  let _ = LOG.0.send(msg.as_ref().to_string());
 }
 
 pub struct Terminal {
@@ -59,7 +61,9 @@ impl Terminal {
       input: String::new(),
     };
 
-    t.render_loop();
+    if let Err(e) = t.render_loop() {
+      log!("{:?}", e);
+    };
   }
 
   pub fn render_loop(&mut self) -> Result<()> {
@@ -69,26 +73,45 @@ impl Terminal {
     let backend = TermionBackend::new(stdout);
     let mut terminal = TuiTerminal::new(backend)?;
 
+    let mut logs: VecDeque<String> = VecDeque::new();
+
     loop {
       terminal.draw(|f| {
         let chunks = Layout::default()
           .direction(Direction::Vertical)
           // .margin(2)
-          .constraints(
-            [
-              Constraint::Length(3),
-              Constraint::Length(3),
-              Constraint::Min(1),
-            ]
-            .as_ref(),
-          )
+          .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
           .split(f.size());
 
         let input = Paragraph::new(self.input.as_ref())
           .style(Style::default())
           .block(Block::default().borders(Borders::ALL).title("Input"));
+        f.set_cursor(
+          chunks[0].x + self.input.len() as u16 + 1,
+          chunks[0].y + 1,
+        );
         f.render_widget(input, chunks[0]);
+
+        let logs: Vec<ListItem> = logs
+          .iter()
+          .enumerate()
+          .rev()
+          .take(chunks[1].height as usize)
+          .map(|(i, l)| ListItem::new(format!("{}|{}", i, l)))
+          .collect();
+        f.render_widget(
+          List::new(logs)
+            .block(Block::default().borders(Borders::TOP).title("Logs")),
+          chunks[1],
+        );
       })?;
+
+      for log in LOG.1.try_iter() {
+        logs.push_back(log);
+        if logs.len() > 300 {
+          logs.pop_front();
+        }
+      }
 
       match self.events.recv()? {
         Event::Input(k) => match k {
@@ -96,15 +119,20 @@ impl Terminal {
             drop(terminal);
             std::process::exit(0);
           }
-          Key::Char(ch) => {
-            self.input.push(ch);
+          Key::Char('\n') => {
+            let cmd = std::mem::replace(&mut self.input, String::new());
+            // TODO: isolate into thread
+            thread::spawn(move || {
+              if let Err(e) = command::parse_command(cmd) {
+                log!("Command: {:?}", e);
+              }
+            });
           }
           Key::Backspace => {
             self.input.pop();
           }
-          Key::End => {
-            let cmd = std::mem::replace(&mut self.input, String::new());
-            command::parse_command(cmd);
+          Key::Char(ch) => {
+            self.input.push(ch);
           }
           _ => (),
         },

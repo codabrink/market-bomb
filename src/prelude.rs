@@ -10,7 +10,7 @@ pub use crate::{
   database::{self, con, MyDbCon, QueryOptions},
   *,
 };
-pub use anyhow::Result;
+pub use anyhow::{bail, Result};
 pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 pub use range::*;
 pub use time::*;

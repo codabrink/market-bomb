@@ -117,8 +117,8 @@ mod tests {
     let interval = "15m";
 
     let (start_ms, end_ms) = time_defaults(None, None, interval)?;
-    println!("start_ms: {}", start_ms);
-    println!("end_ms: {}", end_ms);
+    log!("start_ms: {}", start_ms);
+    log!("end_ms: {}", end_ms);
     let api = Binance::new();
     api.fetch_candles(symbol, interval, start_ms, end_ms)?;
 

@@ -45,7 +45,7 @@ impl Api {
             b.fetch_candles(symbol, interval, range.start, range.end)
           }
         }?;
-        println!("Api returned {} candles.", candles.len());
+        log!("Api returned {} candles.", candles.len());
         for candle in candles {
           con.insert_candle(symbol, interval, &candle)?;
         }
@@ -56,7 +56,7 @@ impl Api {
     for range in con.missing_candles(symbol, interval, start, end)? {
       let mut open_time = range.start;
       while open_time <= range.end {
-        println!("Inserting dead candle at {}..", open_time);
+        log!("Inserting dead candle at {}..", open_time);
         let candle = Candle::dead(open_time);
         con
           .insert_candle(symbol, interval, &candle)

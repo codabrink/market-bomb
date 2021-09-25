@@ -43,7 +43,7 @@ fn train(symbol: &str, interval: &str) -> Result<()> {
   let now = round(now(), step);
   let then = now - CONFIG.history_num_candles * step;
 
-  println!("Writing frames...");
+  log!("Writing frames...");
   let pb = ProgressBar::new(((now - then) / step) as u64);
   let mut ms = then;
   while ms < now {
@@ -52,7 +52,7 @@ fn train(symbol: &str, interval: &str) -> Result<()> {
         let _ = frame.write_to_csv(&folder_path);
       }
       Err(e) => {
-        println!("{:?}", e);
+        log!("{:?}", e);
       }
     }
     pb.inc(1);

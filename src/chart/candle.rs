@@ -32,12 +32,12 @@ pub fn build_domain(
   symbol: &str,
   interval: &str,
 ) -> Result<()> {
-  println!("Calculating domain for {}, {}...", symbol, interval);
+  log!("Calculating domain for {}, {}...", symbol, interval);
   let mut candles = con.query_candles(symbol, interval, None)?;
   let pb = data::progress_bar(candles.len() as i64);
 
   pb.finish_and_clear();
-  println!("Saving..");
+  log!("Saving..");
 
   for i in 0..candles.len() {
     set_domain(&mut candles, i, symbol, interval);
