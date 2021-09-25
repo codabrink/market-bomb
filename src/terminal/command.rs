@@ -13,9 +13,9 @@ pub fn parse_command(cmd: String) -> Result<()> {
     "download" if parts.len() > 2 => {
       log!("Command recognized.");
       let range_parts: Vec<&str> = parts[2].split("..").collect();
-      let start = ago_to_ms(range_parts[0])?;
+      let start = range_parts[0].ago_ms()?;
       let end = match range_parts.get(1) {
-        Some(p) => ago_to_ms(p)?,
+        Some(p) => p.ago_ms()?,
         _ => now(),
       };
       if start > end {

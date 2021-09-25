@@ -1,6 +1,11 @@
 use crate::{chart::Candle, data::*};
 use anyhow::Result;
-use std::{ops::Range, process::Command, sync::RwLock};
+use std::{
+  mem::{discriminant, Discriminant},
+  ops::Range,
+  process::Command,
+  sync::RwLock,
+};
 
 lazy_static! {
   pub static ref POOL: DbPool = init_pool();
@@ -10,15 +15,6 @@ pub enum Order {
   DESC,
 }
 
-#[derive(Default)]
-pub struct QueryOptions {
-  pub start: Option<i64>,
-  pub end: Option<i64>,
-  pub limit: Option<usize>,
-  pub order: Option<Order>,
-  pub top_domain: Option<i32>,
-  pub bottom_domain: Option<i32>,
-}
 lazy_static! {
   pub static ref DATABASE: RwLock<String> = RwLock::new("trader".into());
 }
@@ -28,107 +24,120 @@ pub fn test() {
   let _ = con().batch_execute("DELETE FROM candles;");
 }
 
-pub trait MyDbCon {
-  fn query_candles(
-    &mut self,
-    symbol: &str,
-    interval: &str,
-    options: Option<QueryOptions>,
-  ) -> Result<Vec<Candle>>;
-  fn missing_candles(
-    &mut self,
-    symbol: &str,
-    interval: &str,
-    start: i64,
-    end: i64,
-  ) -> Result<Vec<Range<i64>>>;
-  fn insert_candle(
-    &mut self,
-    symbol: &str,
-    interval: &str,
-    candle: &Candle,
-  ) -> Result<()>;
-  fn copy_in_candles(
-    &mut self,
-    out: String,
-    symbol: &str,
-    interval: &str,
-  ) -> Result<()>;
+pub struct Query<'a> {
+  pub con: DbCon,
+  pub symbol: &'a str,
+  pub interval: &'a str,
+  options: AHashMap<Discriminant<QueryOpt>, QueryOpt>,
 }
 
-impl MyDbCon for DbCon {
-  fn query_candles(
-    &mut self,
-    symbol: &str,
-    interval: &str,
-    options: Option<QueryOptions>,
-  ) -> Result<Vec<Candle>> {
-    let options = match options {
-      Some(o) => o,
-      None => QueryOptions {
-        ..Default::default()
-      },
+pub enum QueryOpt {
+  Start(i64),
+  End(i64),
+  Limit(usize),
+  Order(Order),
+  TopDomain(i32),
+  BottomDomain(i32),
+}
+impl<'a> Query<'a> {
+  pub fn new(symbol: &'a str, interval: &'a str) -> Self {
+    Self {
+      symbol,
+      interval,
+      con: con(),
+      options: AHashMap::new(),
+    }
+  }
+  pub fn get(&'a self, opt: &QueryOpt) -> Option<&QueryOpt> {
+    self.options.get(&discriminant(opt))
+  }
+  pub fn set(&'a mut self, opt: QueryOpt) {
+    self.options.insert(discriminant(&opt), opt);
+  }
+  pub fn set_all(&'a mut self, opt: &[QueryOpt]) {
+    for opt in opt {
+      self.set(*opt);
+    }
+  }
+  pub fn remove(&'a mut self, opt: &QueryOpt) {
+    self.options.remove(&discriminant(&opt));
+  }
+  pub fn step(&self) -> i64 {
+    self
+      .interval
+      .to_step()
+      .expect("Could not convert interval to step")
+  }
+
+  fn serialize(
+    &self,
+    columns: Option<&str>,
+  ) -> (String, Vec<&(dyn ToSql + Sync)>) {
+    use QueryOpt::*;
+
+    let columns = match columns {
+      Some(c) => c,
+      _ => Candle::DB_COLUMNS,
     };
 
     let mut query = format!(
-      "SELECT {} FROM candles WHERE symbol = $1 AND interval = $2 AND dead = false",
-      Candle::DB_COLUMNS
+      r#"SELECT {} FROM candles WHERE symbol = {} AND interval = {} AND dead = false"#,
+      columns, self.symbol, self.interval
     );
-    let mut params: Vec<&(dyn ToSql + Sync)> = vec![&symbol, &interval];
+    let params = vec![];
+    let mut limit = CONFIG.query_limit;
+    let mut order = ASC;
     let mut i = 2;
-    if let Some(start) = &options.start {
-      i += 1;
-      query.push_str(format!(" AND open_time >= ${}", i).as_str());
-      params.push(start);
+
+    for (_, o) in self.options {
+      match o {
+        Start(start) => query.push_str(&format!(" AND open_time >= {}", start)),
+        End(end) => query.push_str(&format!(" AND close_time >= {}", end)),
+        Limit(l) => limit = l,
+        Order(o) => order = o,
+        _ => {}
+      };
     }
-    if let Some(end) = &options.end {
-      i += 1;
-      query.push_str(format!(" AND open_time <= ${}", i).as_str());
-      params.push(end);
-    }
-    if let Some(top_domain) = &options.top_domain {
-      i += 1;
-      query.push_str(format!(" AND top_domain >= ${}", i).as_str());
-      params.push(top_domain);
-    }
-    if let Some(bottom_domain) = &options.bottom_domain {
-      i += 1;
-      query.push_str(format!(" AND bottom_domain >= ${}", i).as_str());
-      params.push(bottom_domain);
-    }
-    match options.order {
-      Some(Order::DESC) => query.push_str(" ORDER BY open_time DESC"),
-      _ => query.push_str(" ORDER BY open_time ASC"),
-    }
-    let limit = match options.limit {
-      Some(l) => l,
-      None => CONFIG.query_limit,
-    };
+
+    query.push_str(match order {
+      ASC => "ORDER BY open_time ASC",
+      DESC => "ORDER BY open_time DESC",
+    });
     query.push_str(format!(" LIMIT {}", limit).as_str());
 
-    // log!("{}", query.as_str());
-    // log!("{:?}", &params);
-    let rows = self.query(query.as_str(), &params)?;
+    (query, params)
+  }
+
+  pub fn query_candles(&mut self) -> Result<Vec<Candle>> {
+    let (query, params) = self.serialize(None);
+    let rows = self.con.query(query.as_str(), &params)?;
     Ok(rows.iter().enumerate().map(Candle::from).collect())
   }
-  fn missing_candles(
-    &mut self,
-    symbol: &str,
-    interval: &str,
-    start: i64,
-    end: i64,
-  ) -> Result<Vec<Range<i64>>> {
-    let step = interval.to_step()?;
-    let start = round(start, step);
-    let end = round(end, step) - step;
+
+  pub fn count_candles(&mut self) -> Result<usize> {
+    let (query, params) = self.serialize(Some("Count(*)"));
+    let rows = self.con.query(query.as_str(), &params)?;
+    Ok(rows[0].get::<usize, i64>(0) as usize)
+  }
+
+  pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
+    let step = self.interval.to_step()?;
+    let start = match self.get(&Start(0)) {
+      Some(Start(s)) => s,
+      _ => bail!("Need a beginning of the range"),
+    };
+    let end = match self.get(&End(0)) {
+      Some(End(e)) => e,
+      _ => bail!("Need and end of the range"),
+    };
 
     let rows = self
-          .query(
+          .con.query(
               "
   SELECT c.open_time AS missing_open_times
   FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
   WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5);",
-              &[&start, &end, &step, &symbol, &interval],
+              &[&start, &end, &step, &self.symbol, &self.interval],
           )?;
 
     let missing: Vec<i64> = rows.iter().map(|i| i.get(0)).collect();
@@ -149,21 +158,16 @@ impl MyDbCon for DbCon {
     }
     Ok(result)
   }
-  fn copy_in_candles(
-    &mut self,
-    out: String,
-    symbol: &str,
-    interval: &str,
-  ) -> Result<()> {
+  pub fn copy_in_candles(&mut self, out: String) -> Result<()> {
     fs::create_dir_all("/tmp/pg_copy")?;
     let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, dead, indicators";
     let mut _out = String::from(format!("{}\n", header));
     _out.push_str(out.as_str());
 
-    let p = format!("/tmp/pg_copy/{}-{}.csv", symbol, interval);
+    let p = format!("/tmp/pg_copy/{}-{}.csv", self.symbol, self.interval);
     let path = Path::new(&p);
     fs::write(path, out)?;
-    self.batch_execute("delete from import_candles;")?;
+    self.con.batch_execute("delete from import_candles;")?;
     Command::new("psql")
       .arg("-d")
       .arg(db())
@@ -175,7 +179,7 @@ impl MyDbCon for DbCon {
       .output()
       .expect("Failed to copy in candles");
 
-    self.batch_execute(
+    self.con.batch_execute(
       format!(
         "
   DELETE FROM candles WHERE
@@ -183,8 +187,8 @@ impl MyDbCon for DbCon {
   AND symbol = '{symbol}' AND interval = '{interval}';
   INSERT INTO candles SELECT * FROM import_candles;
   ",
-        symbol = symbol,
-        interval = interval
+        symbol = self.symbol,
+        interval = self.interval
       )
       .as_str(),
     )?;
@@ -192,13 +196,9 @@ impl MyDbCon for DbCon {
     Ok(())
   }
 
-  fn insert_candle(
-    &mut self,
-    symbol: &str,
-    interval: &str,
-    candle: &Candle,
-  ) -> Result<()> {
+  pub fn insert_candle(&mut self, candle: &Candle) -> Result<()> {
     self
+      .con
       .execute(
         "
   INSERT INTO candles (
@@ -216,8 +216,8 @@ impl MyDbCon for DbCon {
     source
   ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         &[
-          &symbol,
-          &interval,
+          &self.symbol,
+          &self.interval,
           &(candle.open_time as i64),
           &(candle.close_time as i64),
           &candle.open,
@@ -236,7 +236,9 @@ impl MyDbCon for DbCon {
   }
 }
 
-fn db() -> String { DATABASE.read().unwrap().clone() }
+fn db() -> String {
+  DATABASE.read().unwrap().clone()
+}
 
 fn init_pool() -> DbPool {
   if !database_exists() {
@@ -252,7 +254,9 @@ fn init_pool() -> DbPool {
   );
   Pool::new(manager).unwrap()
 }
-pub fn con() -> DbCon { POOL.clone().get().unwrap() }
+pub fn con() -> DbCon {
+  POOL.clone().get().unwrap()
+}
 
 pub fn database_exists() -> bool {
   let a = Command::new("psql")
@@ -265,7 +269,9 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
+pub fn reset() {
+  con().batch_execute("DELETE FROM candles;").unwrap();
+}
 pub fn create_db() -> Result<()> {
   print!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?

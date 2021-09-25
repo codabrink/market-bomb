@@ -22,11 +22,12 @@ use indicatif::ProgressBar;
 use prelude::*;
 use std::fs;
 
-fn main() { terminal::Terminal::new(); }
+fn main() {
+  terminal::Terminal::new();
+}
 
 fn train(symbol: &str, interval: &str) -> Result<()> {
   // Collect all candles
-  data::build_database();
   let mut con = con();
 
   let folder_path = format!(
@@ -63,8 +64,6 @@ fn train(symbol: &str, interval: &str) -> Result<()> {
 }
 
 fn predict_now(symbol: &str, interval: &str) -> Result<()> {
-  data::build_database();
-
   let mut con = con();
   let _ = fs::remove_dir_all("builder/csv/predict");
 
@@ -80,7 +79,6 @@ fn predict_now(symbol: &str, interval: &str) -> Result<()> {
 }
 
 fn predict(symbol: &str, interval: &str, relative: &str) -> Result<()> {
-  data::build_database();
   let mut con = con();
   let step = interval.to_step()?;
   let relative = relative.to_step()?;

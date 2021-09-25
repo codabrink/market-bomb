@@ -11,29 +11,36 @@ lazy_static! {
     Regex::new(r"(?P<n>\d+)(?P<unit>[a-zA-Z])").unwrap();
 }
 
-pub fn ago_to_ms(input: impl AsRef<str>) -> Result<i64> {
-  let input = input.as_ref();
-  let now = chrono::Utc::now();
-  let caps = RE_INTERVAL.captures(input).unwrap();
-  let mut y = now.year();
-  let mut m = now.month();
-  let mut d = now.day();
-  let mut h = now.hour();
+pub trait AgoToMs {
+  fn ago_ms(&self) -> Result<i64>;
+}
+impl AgoToMs for &str {
+  fn ago_ms(&self) -> Result<i64> {
+    let input = self.as_ref();
+    let now = chrono::Utc::now();
+    let caps = RE_INTERVAL.captures(input).unwrap();
+    let mut y = now.year();
+    let mut m = now.month();
+    let mut d = now.day();
+    let mut h = now.hour();
 
-  let n: u32 = caps["n"].parse()?;
+    let n: u32 = caps["n"].parse()?;
 
-  match &caps["unit"] {
-    "y" => y -= n as i32,
-    "m" => m -= n,
-    "d" => d -= n,
-    "h" => h -= n,
-    _ => (),
-  };
+    match &caps["unit"] {
+      "y" => y -= n as i32,
+      "m" => m -= n,
+      "d" => d -= n,
+      "h" => h -= n,
+      _ => (),
+    };
 
-  to_ms(&Utc.ymd(y, m, d).and_hms(h, 0, 0), "15m")
+    to_ms(&Utc.ymd(y, m, d).and_hms(h, 0, 0), "15m")
+  }
 }
 
-pub fn now() -> i64 { Utc::now().timestamp_millis() as i64 }
+pub fn now() -> i64 {
+  Utc::now().timestamp_millis() as i64
+}
 pub fn to_ms(time: &DateTime<Utc>, interval: &str) -> Result<i64> {
   let step = interval.to_step()?;
   let ms = time.timestamp_millis();
@@ -46,7 +53,9 @@ pub fn ms_to_human(ms: &i64) -> String {
 }
 // Rounds down to the nearest step; rounds up if inclusive.
 // Makes the timestamp api friendly.
-pub fn round(ms: i64, step: i64) -> i64 { ms - ms % step }
+pub fn round(ms: i64, step: i64) -> i64 {
+  ms - ms % step
+}
 
 pub trait StrToMs {
   fn to_step(&self) -> Result<i64>;

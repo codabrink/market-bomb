@@ -51,7 +51,7 @@ impl Terminal {
       }
     });
 
-    thread::spawn(move || {
+    thread::spawn(move || loop {
       let _ = tx.send(Event::Tick);
       thread::sleep(Duration::from_millis(200));
     });
@@ -136,7 +136,7 @@ impl Terminal {
           }
           _ => (),
         },
-        Event::Tick => (),
+        Event::Tick => {}
       }
     }
   }

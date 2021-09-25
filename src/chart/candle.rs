@@ -27,13 +27,13 @@ pub struct CandleIndicators {
   pub ema_4h_200: f32,
 }
 
-pub fn build_domain(
-  con: &mut DbCon,
-  symbol: &str,
-  interval: &str,
-) -> Result<()> {
-  log!("Calculating domain for {}, {}...", symbol, interval);
-  let mut candles = con.query_candles(symbol, interval, None)?;
+pub fn build_domain(con: &mut DbCon, query: &Query) -> Result<()> {
+  log!(
+    "Calculating domain for {}, {}...",
+    query.symbol,
+    query.interval
+  );
+  let mut candles = query.query_candles()?;
   let pb = data::progress_bar(candles.len() as i64);
 
   pb.finish_and_clear();
@@ -46,9 +46,7 @@ pub fn build_domain(
     .iter()
     .map(|c| c.to_string(symbol, interval))
     .collect();
-  con
-    .copy_in_candles(candle_rows.join(""), symbol, interval)
-    .unwrap();
+  query.copy_in_candles(candle_rows.join("")).unwrap();
 
   Ok(())
 }
@@ -152,8 +150,12 @@ impl Candle {
 
     top_wick / wick - bottom_wick / wick
   }
-  pub fn open_y(&self) -> f32 { self.open }
-  pub fn open_x(&self) -> i64 { self.open_time }
+  pub fn open_y(&self) -> f32 {
+    self.open
+  }
+  pub fn open_x(&self) -> i64 {
+    self.open_time
+  }
   pub fn to_string(&self, symbol: &str, interval: &str) -> String {
     format!(
       "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}\n",

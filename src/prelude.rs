@@ -7,9 +7,10 @@ mod time;
 pub use crate::{
   api::*,
   config::Config,
-  database::{self, con, MyDbCon, QueryOptions},
+  database::{self, con, Order::*, Query, QueryOpt::*},
   *,
 };
+pub use ahash::{AHashMap, AHashSet};
 pub use anyhow::{bail, Result};
 pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 pub use range::*;
@@ -31,4 +32,6 @@ macro_rules! log {
   };
 }
 
-pub fn test_prep() { crate::database::test(); }
+pub fn test_prep() {
+  crate::database::test();
+}
