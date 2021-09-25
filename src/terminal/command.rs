@@ -18,13 +18,15 @@ pub fn parse_command(cmd: String) -> Result<()> {
         Some(p) => p.ago_ms()?,
         _ => now(),
       };
+      let mut query = Query::new("BTCUSDT", parts[1]);
+      query.set_all(&[Start(start), End(end)]);
       if start > end {
         bail!("Start of range must be before end.");
       }
       log!("Downloading candles from {} to {}.", start, end);
 
       let api = Binance::new();
-      let _ = api.fetch_candles("BTCUSDT", parts[1], start, end);
+      let _ = api.fetch_candles(&mut query);
     }
     "calculate_meta" => {}
     _ => (),

@@ -6,21 +6,18 @@ const CANDLE_LIMIT: i64 = 500;
 
 pub struct Binance {}
 impl ApiTrait for Binance {
-  fn new() -> Api { Api::Binance(Self {}) }
-  fn fetch_candles(
-    &self,
-    symbol: &str,
-    interval: &str,
-    start: i64,
-    end: i64,
-  ) -> Result<Vec<Candle>> {
-    if start == end {
+  fn new() -> Api {
+    Api::Binance(Self {})
+  }
+  fn fetch_candles(&self, query: &Query) -> Result<Vec<Candle>> {
+    if query.is_empty() {
       return Ok(vec![]);
     }
 
-    let step = interval.to_step()?;
+    let step = query.step();
+
     let candle_limit_ms = (CANDLE_LIMIT * step) as usize;
-    let expected = (start..end).num_candles(step);
+    let expected = query.num_candles();
     let mut candles = Vec::with_capacity(expected as usize);
 
     let mut fetch = |start: i64, end: i64| -> Result<()> {
@@ -30,8 +27,8 @@ impl ApiTrait for Binance {
 
       let url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval={}&startTime={}&endTime={}",
-        symbol,
-        interval,
+        query.symbol,
+        query.interval,
         start,
         end
       );
@@ -53,8 +50,9 @@ impl ApiTrait for Binance {
       Ok(())
     };
 
-    for start in (start..end).step_by(candle_limit_ms) {
-      fetch(start, (start + candle_limit_ms as i64).min(end))?;
+    let r = query.range().unwrap();
+    for start in (r.start..r.end).step_by(candle_limit_ms) {
+      fetch(r.start, (r.start + candle_limit_ms as i64).min(r.end))?;
     }
 
     Ok(candles)

@@ -1,4 +1,4 @@
-use crate::{database, prelude::*, strong_point, Candle, StrongPoint, CONFIG};
+use crate::{database, prelude::*, Candle, CONFIG};
 use anyhow::{anyhow, Result};
 use std::{fs, path::Path, process::Command};
 
@@ -15,55 +15,36 @@ pub struct Frame<'a> {
 }
 
 impl<'a> Frame<'a> {
-  pub fn new(
-    con: &mut DbCon,
-    symbol: &'a str,
-    interval: &'a str,
-    ms: i64,
-  ) -> Result<Self> {
+  pub fn new(query: &mut Query, ms: i64) -> Result<Self> {
     let min_domain = CONFIG.strong_points.min_domain;
-    let step = interval.to_step()?;
+    let step = query.step();
 
     assert!(ms == round(ms, step));
     log!("Frame time: {}", ms_to_human(&ms));
 
     // First grab the detail candles (custom query)
     // Then grab strong points that are before (custom query)
-    let detail_candles: Vec<Candle> = con
-      .query_candles(
-        symbol,
-        interval,
-        Some(database::QueryOptions {
-          start: Some(ms - step * CONFIG.export.detail_view_len as i64),
-          end: Some(ms),
-          order: Some(database::Order::DESC),
-          ..Default::default()
-        }),
-      )?
-      .into_iter()
-      .rev()
-      .collect();
+    query.set_all(&[
+      Start(ms - step * CONFIG.export.detail_view_len as i64),
+      End(ms),
+      Order(DESC),
+    ]);
+    let detail_candles = query.query_candles()?;
 
     assert!(detail_candles[0].open_time < detail_candles[1].open_time);
     // assert_eq!(detail_candles.len(), CONFIG.export.detail_view_len);
     assert_eq!(detail_candles.last().unwrap().open_time, ms);
 
-    let strong_point_candles: Vec<Candle> = con
-      .query_candles(
-        symbol,
-        interval,
-        Some(database::QueryOptions {
-          bottom_domain: Some(min_domain),
-          top_domain: Some(min_domain),
-          limit: Some(CONFIG.export.strong_point_length),
-          order: Some(database::Order::DESC),
-          end: Some(detail_candles[0].open_time - step),
-          ..Default::default()
-        }),
-      )?
-      .into_iter()
-      .rev()
-      .collect();
+    query.clear();
+    query.set_all(&[
+      BottomDomain(min_domain),
+      TopDomain(min_domain),
+      Limit(CONFIG.export.strong_point_length),
+      Order(DESC),
+      End(detail_candles[0].open_time - step),
+    ]);
+    let strong_point_candles = query.query_candles()?;
+
     let strong_points = strong_point::generate_points(&strong_point_candles);
 
     // They should not overlap
@@ -96,14 +77,16 @@ impl<'a> Frame<'a> {
       sp_values,
       dx_max,
       dy_max,
-      symbol,
-      interval,
+      symbol: query.symbol.clone(),
+      interval: query.interval.clone(),
       close: detail_candles.last().unwrap().close,
       sp_detail_delta,
     })
   }
 
-  pub fn pretty_time(&self) -> String { ms_to_human(&self.ms) }
+  pub fn pretty_time(&self) -> String {
+    ms_to_human(&self.ms)
+  }
 
   fn result(&self) -> Result<f32> {
     let mut con = con();

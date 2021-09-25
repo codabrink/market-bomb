@@ -1,4 +1,4 @@
-use crate::{chart::Candle, data::*};
+use crate::prelude::*;
 use anyhow::Result;
 use std::{
   mem::{discriminant, Discriminant},
@@ -59,8 +59,28 @@ impl<'a> Query<'a> {
       self.set(*opt);
     }
   }
+  pub fn is_empty(&self) -> bool {
+    self.num_candles() == 0
+  }
+  pub fn num_candles(&self) -> usize {
+    match (self.get(&Start(0)), self.get(&End(0))) {
+      (Some(Start(start)), Some(End(end))) if start > end => {
+        (*start..*end).num_candles(self.step())
+      }
+      _ => 0,
+    }
+  }
+  pub fn clear(&mut self) {
+    self.options.clear();
+  }
   pub fn remove(&'a mut self, opt: &QueryOpt) {
     self.options.remove(&discriminant(&opt));
+  }
+  pub fn range(&self) -> Option<Range<i64>> {
+    match (self.get(&Start(0)), self.get(&End(0))) {
+      (Some(Start(start)), Some(End(end))) => Some(*start..*end),
+      _ => None,
+    }
   }
   pub fn step(&self) -> i64 {
     self
@@ -159,6 +179,8 @@ impl<'a> Query<'a> {
     Ok(result)
   }
   pub fn copy_in_candles(&mut self, out: String) -> Result<()> {
+    use std::path::Path;
+
     fs::create_dir_all("/tmp/pg_copy")?;
     let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, dead, indicators";
     let mut _out = String::from(format!("{}\n", header));
