@@ -41,8 +41,7 @@ impl AgoToMs for &str {
 pub fn now() -> i64 {
   Utc::now().timestamp_millis() as i64
 }
-pub fn to_ms(time: &DateTime<Utc>, interval: &str) -> Result<i64> {
-  let step = interval.to_step()?;
+pub fn to_ms(time: &DateTime<Utc>, step: i64) -> Result<i64> {
   let ms = time.timestamp_millis();
   Ok(round(ms, step))
 }

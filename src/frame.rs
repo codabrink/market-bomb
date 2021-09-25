@@ -269,21 +269,22 @@ mod tests {
   #[test]
   fn functional_frames() -> Result<()> {
     test_prep();
-    let interval = "15m";
-    let symbol = "BTCUSDT";
-    let step = interval.to_step()?;
 
-    let start = to_ms(&Utc.ymd(2020, 01, 01).and_hms(0, 0, 0), interval)?;
+    let query = Query::new("BTCUSDT", "15m");
+    let step = query.step();
+
+    let start = to_ms(&Utc.ymd(2020, 01, 01).and_hms(0, 0, 0), step)?;
     let end = start + step * 100;
 
-    let missing = con().missing_candles(symbol, interval, start, end)?;
+    query.set_all(&[Start(start), End(end)]);
+    let missing = query.missing_candles()?;
 
     assert_eq!(missing.len(), 1);
     assert_eq!(missing[0].start, start);
     assert_eq!(missing[0].end, end - step); // ends in range are non-inclusive
 
     let api = Binance::new();
-    let candles = api.fetch_candles(symbol, interval, start, end)?;
+    let candles = api.fetch_candles(&mut query)?;
 
     assert_eq!(candles.len(), (start..end).num_candles(step) as usize);
 
