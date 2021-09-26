@@ -1,4 +1,4 @@
-use crate::{chart::Candle, data, database, prelude::*};
+use crate::prelude::*;
 use actix_web::{
   middleware, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
@@ -11,11 +11,9 @@ async fn candles(req: HttpRequest) -> impl Responder {
   web::block(move || -> Result<Vec<Candle>, Error> {
     let symbol = qs.get("symbol").unwrap_or("BTCUSDT");
     let interval = qs.get("interval").unwrap_or("15m");
-    let (start, end) = data::time_defaults(None, None, interval).unwrap();
+    let mut query = Query::new(symbol, interval);
 
-    let candles = Binance::new()
-      .fetch_candles(symbol, interval, start, end)
-      .unwrap();
+    let candles = query.query_candles().unwrap();
     Ok(candles)
   })
   .await

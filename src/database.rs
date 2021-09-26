@@ -10,6 +10,7 @@ use std::{
 lazy_static! {
   pub static ref POOL: DbPool = init_pool();
 }
+#[derive(Clone)]
 pub enum Order {
   ASC,
   DESC,
@@ -31,6 +32,7 @@ pub struct Query<'a> {
   options: AHashMap<Discriminant<QueryOpt>, QueryOpt>,
 }
 
+#[derive(Clone)]
 pub enum QueryOpt {
   Start(i64),
   End(i64),
@@ -48,15 +50,16 @@ impl<'a> Query<'a> {
       options: AHashMap::new(),
     }
   }
-  pub fn get(&'a self, opt: &QueryOpt) -> Option<&QueryOpt> {
+  pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     self.options.get(&discriminant(opt))
   }
-  pub fn set(&'a mut self, opt: QueryOpt) {
+  pub fn set(&mut self, opt: QueryOpt) {
     self.options.insert(discriminant(&opt), opt);
   }
-  pub fn set_all(&'a mut self, opt: &[QueryOpt]) {
+  pub fn set_all(&mut self, opt: &[QueryOpt]) {
     for opt in opt {
-      self.set(*opt);
+      self.set(opt.clone());
+      // self.options.insert(discriminant(opt), opt.clone());
     }
   }
   pub fn is_empty(&self) -> bool {
@@ -109,12 +112,12 @@ impl<'a> Query<'a> {
     let mut order = ASC;
     let mut i = 2;
 
-    for (_, o) in self.options {
+    for (_, o) in &self.options {
       match o {
         Start(start) => query.push_str(&format!(" AND open_time >= {}", start)),
         End(end) => query.push_str(&format!(" AND close_time >= {}", end)),
-        Limit(l) => limit = l,
-        Order(o) => order = o,
+        Limit(l) => limit = *l,
+        Order(o) => order = o.clone(),
         _ => {}
       };
     }
@@ -143,11 +146,11 @@ impl<'a> Query<'a> {
   pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
     let step = self.interval.to_step()?;
     let start = match self.get(&Start(0)) {
-      Some(Start(s)) => s,
+      Some(Start(s)) => *s,
       _ => bail!("Need a beginning of the range"),
     };
     let end = match self.get(&End(0)) {
-      Some(End(e)) => e,
+      Some(End(e)) => *e,
       _ => bail!("Need and end of the range"),
     };
 

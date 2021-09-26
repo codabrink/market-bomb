@@ -1,24 +1,26 @@
-use crate::{database, prelude::*, Candle, CONFIG};
+use crate::{prelude::*, Candle, CONFIG};
 use anyhow::{anyhow, Result};
 use std::{fs, path::Path, process::Command};
 
-pub struct Frame<'a> {
+pub struct Frame<'f> {
   sp_values: Vec<(f32, f32, u8)>,
   detail_values: Vec<(f32, f32)>,
   sp_detail_delta: (f32, f32),
+  query: Query<'f>,
   pub dx_max: f32,
   pub dy_max: f32,
   pub ms: i64,
-  symbol: &'a str,
-  interval: &'a str,
+  symbol: &'f str,
+  interval: &'f str,
   close: f32,
 }
 
-impl<'a> Frame<'a> {
-  pub fn new(query: &mut Query, ms: i64) -> Result<Self> {
+impl<'f> Frame<'f> {
+  pub fn new(symbol: &'f str, interval: &'f str, ms: i64) -> Result<Self> {
     let min_domain = CONFIG.strong_points.min_domain;
-    let step = query.step();
 
+    let mut query = Query::new(symbol, interval);
+    let step = query.step();
     assert!(ms == round(ms, step));
     log!("Frame time: {}", ms_to_human(&ms));
 
@@ -74,6 +76,7 @@ impl<'a> Frame<'a> {
     Ok(Frame {
       ms,
       detail_values,
+      query,
       sp_values,
       dx_max,
       dy_max,
@@ -88,20 +91,11 @@ impl<'a> Frame<'a> {
     ms_to_human(&self.ms)
   }
 
-  fn result(&self) -> Result<f32> {
-    let mut con = con();
+  fn result(&mut self) -> Result<f32> {
     let step = self.interval.to_step()?;
     let result_ms =
       self.ms + step * CONFIG.export.predict_candles_forward as i64;
-    let candle = match con.query_candles(
-      self.symbol,
-      self.interval,
-      Some(database::QueryOptions {
-        start: Some(result_ms),
-        limit: Some(1),
-        ..Default::default()
-      }),
-    ) {
+    let candle = match self.query.query_candles() {
       Ok(candles) if candles.len() == 1 => candles[0],
       _ => return Err(anyhow!("No candle found at {}", self.ms)),
     };
@@ -207,7 +201,7 @@ fn compile_strong_points(
     .collect()
 }
 
-impl<'a> From<&Frame<'a>> for String {
+impl<'f> From<&Frame<'f>> for String {
   fn from(frame: &Frame) -> Self {
     let mut result = String::new();
     let (x_ratio, y_ratio) = (1f32 / frame.dx_max, 1f32 / frame.dy_max);
