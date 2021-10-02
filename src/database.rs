@@ -233,9 +233,8 @@ impl<'a> Query<'a> {
     close,
     volume,
     dead,
-    indicators,
     source
-  ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+  ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         &[
           &self.symbol,
           &self.interval,
@@ -247,7 +246,6 @@ impl<'a> Query<'a> {
           &candle.close,
           &candle.volume,
           &candle.dead,
-          &serde_json::to_string(&candle.indicators)?,
           &"binance",
         ],
       )
@@ -296,12 +294,8 @@ pub fn create_db() -> Result<()> {
 }
 
 fn migrate() -> Result<()> {
-  print!("Migrating database...");
-  Client::connect(
-    format!("host=127.0.0.1 user=postgres dbname={}", db()).as_str(),
-    NoTls,
-  )?
-  .batch_execute(
+  log!("Migrating database...");
+  con().batch_execute(
     "
 CREATE TABLE candles (
   id            SERIAL,
@@ -314,9 +308,6 @@ CREATE TABLE candles (
   low           REAL NOT NULL,
   close         REAL NOT NULL,
   volume        REAL NOT NULL,
-  ma_20         REAL,
-  ma_50         REAL,
-  ma_200        REAL,
   indicators    TEXT NOT NULL,
   bottom_domain INT DEFAULT 0 NOT NULL,
   top_domain    INT DEFAULT 0 NOT NULL,
@@ -410,7 +401,7 @@ pub fn _breaking_candles(
   low: Option<f32>,
 ) -> Result<(Option<Vec<i64>>, Option<Vec<i64>>)> {
   let day_step = "1d".to_step()?;
-  let day_ms = round(open_time, day_step);
+  let day_ms = open_time.round(day_step);
 
   // if days are equally distant, return both. If not, return closest.
   let clean_nearest = |n: Vec<i64>| match n.len() {

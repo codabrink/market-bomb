@@ -14,7 +14,7 @@ impl MarketBombRange<Range<i64>> for Range<i64> {
     self.round_ms(step)
   }
   fn round_ms(&self, step: i64) -> Self {
-    round(self.start, step)..round(self.end, step)
+    self.start.round(step)..self.end.round(step)
   }
   fn num_candles(&self, step: i64) -> usize {
     ((self.end - self.start) / step) as usize

@@ -21,8 +21,8 @@ impl<'f> Frame<'f> {
 
     let mut query = Query::new(symbol, interval);
     let step = query.step();
-    assert!(ms == round(ms, step));
-    log!("Frame time: {}", ms_to_human(&ms));
+    debug_assert_eq!(ms, ms.round(step));
+    log!("Frame time: {}", ms.to_human());
 
     // First grab the detail candles (custom query)
     // Then grab strong points that are before (custom query)
@@ -87,14 +87,14 @@ impl<'f> Frame<'f> {
     })
   }
 
-  pub fn pretty_time(&self) -> String { ms_to_human(&self.ms) }
+  pub fn pretty_time(&self) -> String { self.ms.to_human() }
 
   fn result(&mut self) -> Result<f32> {
     let step = self.interval.to_step()?;
     let result_ms =
       self.ms + step * CONFIG.export.predict_candles_forward as i64;
     let candle = match self.query.query_candles() {
-      Ok(candles) if candles.len() == 1 => candles[0],
+      Ok(mut candles) if candles.len() == 1 => candles.remove(0),
       _ => return Err(anyhow!("No candle found at {}", self.ms)),
     };
     Ok((candle.open - self.close) as f32 / self.dy_max)
@@ -153,8 +153,8 @@ impl<'f> Frame<'f> {
 
     let step = self.interval.to_step()?;
     let mut prediction_time_ms = step * CONFIG.predict_candles_forward() as i64;
-    prediction_time_ms += round(self.ms, step);
-    let prediction_time_human = ms_to_human(&prediction_time_ms);
+    prediction_time_ms += self.ms.round(step);
+    let prediction_time_human = &prediction_time_ms.to_human();
 
     let prediction_price = self.close + ml_output * self.dy_max;
 
@@ -270,7 +270,7 @@ mod tests {
     let mut query = Query::new("BTCUSDT", "15m");
     let step = query.step();
 
-    let start = to_ms(&Utc.ymd(2020, 01, 01).and_hms(0, 0, 0), step)?;
+    let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).to_ms().round(step);
     let end = start + step * 100;
 
     query.set_all(&[Start(start), End(end)]);

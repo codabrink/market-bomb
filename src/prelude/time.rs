@@ -34,26 +34,35 @@ impl AgoToMs for &str {
       _ => (),
     };
 
-    to_ms(&Utc.ymd(y, m, d).and_hms(h, 0, 0), "15m".to_step()?)
+    Ok(
+      Utc
+        .ymd(y, m, d)
+        .and_hms(h, 0, 0)
+        .to_ms()
+        .round("15m".to_step()?),
+    )
   }
 }
 
-pub fn now() -> i64 {
-  Utc::now().timestamp_millis() as i64
+pub fn now() -> i64 { Utc::now().timestamp_millis() as i64 }
+pub trait DateTimeToMs {
+  fn to_ms(&self) -> i64;
 }
-pub fn to_ms(time: &DateTime<Utc>, step: i64) -> Result<i64> {
-  let ms = time.timestamp_millis();
-  Ok(round(ms, step))
+impl DateTimeToMs for DateTime<Utc> {
+  fn to_ms(&self) -> i64 { self.timestamp_millis() as i64 }
 }
-pub fn ms_to_human(ms: &i64) -> String {
-  let d = UNIX_EPOCH + Duration::from_millis(*ms as u64);
-  let datetime = DateTime::<Utc>::from(d);
-  datetime.format(DATETIME_FORMAT).to_string()
+
+pub trait MsExtra {
+  fn round(&self, step: i64) -> i64;
+  fn to_human(&self) -> String;
 }
-// Rounds down to the nearest step; rounds up if inclusive.
-// Makes the timestamp api friendly.
-pub fn round(ms: i64, step: i64) -> i64 {
-  ms - ms % step
+impl MsExtra for i64 {
+  fn round(&self, step: i64) -> i64 { self - self % step }
+  fn to_human(&self) -> String {
+    let d = UNIX_EPOCH + Duration::from_millis(*self as u64);
+    let datetime = DateTime::<Utc>::from(d);
+    datetime.format(DATETIME_FORMAT).to_string()
+  }
 }
 
 pub trait StrToMs {
@@ -91,9 +100,6 @@ mod prelude_time_tests {
     let now = Utc::now();
     let ms = now.timestamp_millis() as i64;
 
-    assert_eq!(
-      ms_to_human(&ms),
-      now.format(time::DATETIME_FORMAT).to_string()
-    );
+    assert_eq!(ms.to_human(), now.format(time::DATETIME_FORMAT).to_string());
   }
 }
