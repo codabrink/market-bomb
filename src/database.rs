@@ -7,6 +7,8 @@ use std::{
   sync::RwLock,
 };
 
+mod migrations;
+
 lazy_static! {
   pub static ref POOL: DbPool = init_pool();
 }
@@ -295,29 +297,8 @@ pub fn create_db() -> Result<()> {
 
 fn migrate() -> Result<()> {
   log!("Migrating database...");
-  con().batch_execute(
-    "
-CREATE TABLE candles (
-  id            SERIAL,
-  interval      VARCHAR(3) NOT NULL,
-  symbol        VARCHAR(10) NOT NULL,
-  open_time     BIGINT NOT NULL,
-  close_time    BIGINT NOT NULL,
-  open          REAL NOT NULL,
-  high          REAL NOT NULL,
-  low           REAL NOT NULL,
-  close         REAL NOT NULL,
-  volume        REAL NOT NULL,
-  indicators    TEXT NOT NULL,
-  bottom_domain INT DEFAULT 0 NOT NULL,
-  top_domain    INT DEFAULT 0 NOT NULL,
-  fuzzy_domain  BOOLEAN DEFAULT TRUE,
-  dead          BOOLEAN DEFAULT FALSE,
-  source        TEXT NOT NULL,
-  primary key   (open_time, interval, symbol, dead, source)
-);
-CREATE TABLE import_candles AS TABLE candles WITH NO DATA;",
-  )?;
+  migrations::create_candles_table()?;
+  migrations::create_moving_averages_table()?;
   log!("Done");
   Ok(())
 }
@@ -388,6 +369,7 @@ UPDATE candles AS a
   AND (a.top_domain = 0 OR a.bottom_domain = 0);",
     &[&(step as i64), &interval],
   )?;
+
   Ok(())
 }
 
