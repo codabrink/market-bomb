@@ -27,7 +27,7 @@ pub struct CandleIndicators {
   pub ema_4h_200: f32,
 }
 
-pub fn build_domain(con: &mut DbCon, query: &Query) -> Result<()> {
+pub fn build_domain(con: &mut DbCon, query: &mut Query) -> Result<()> {
   log!(
     "Calculating domain for {}, {}...",
     query.symbol,
@@ -150,12 +150,8 @@ impl Candle {
 
     top_wick / wick - bottom_wick / wick
   }
-  pub fn open_y(&self) -> f32 {
-    self.open
-  }
-  pub fn open_x(&self) -> i64 {
-    self.open_time
-  }
+  pub fn open_y(&self) -> f32 { self.open }
+  pub fn open_x(&self) -> i64 { self.open_time }
   pub fn to_string(&self, symbol: &str, interval: &str) -> String {
     format!(
       "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}\n",

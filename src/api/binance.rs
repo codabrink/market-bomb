@@ -6,9 +6,7 @@ const CANDLE_LIMIT: i64 = 500;
 
 pub struct Binance {}
 impl ApiTrait for Binance {
-  fn new() -> Api {
-    Api::Binance(Self {})
-  }
+  fn new() -> Api { Api::Binance(Self {}) }
   fn fetch_candles(&self, query: &Query) -> Result<Vec<Candle>> {
     if query.is_empty() {
       return Ok(vec![]);
@@ -33,7 +31,7 @@ impl ApiTrait for Binance {
         end
       );
 
-      let body = ureq::get(&url).call()?.into_string()?;
+      let body = reqwest::blocking::get(&url)?.text()?;
       let raw_candles: Vec<RawCandle> = serde_json::from_str(&body)?;
 
       // if ARGS.is_present("verbose") {

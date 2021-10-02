@@ -62,9 +62,7 @@ impl<'a> Query<'a> {
       // self.options.insert(discriminant(opt), opt.clone());
     }
   }
-  pub fn is_empty(&self) -> bool {
-    self.num_candles() == 0
-  }
+  pub fn is_empty(&self) -> bool { self.num_candles() == 0 }
   pub fn num_candles(&self) -> usize {
     match (self.get(&Start(0)), self.get(&End(0))) {
       (Some(Start(start)), Some(End(end))) if start > end => {
@@ -73,9 +71,7 @@ impl<'a> Query<'a> {
       _ => 0,
     }
   }
-  pub fn clear(&mut self) {
-    self.options.clear();
-  }
+  pub fn clear(&mut self) { self.options.clear(); }
   pub fn remove(&'a mut self, opt: &QueryOpt) {
     self.options.remove(&discriminant(&opt));
   }
@@ -95,7 +91,7 @@ impl<'a> Query<'a> {
   fn serialize(
     &self,
     columns: Option<&str>,
-  ) -> (String, Vec<&(dyn ToSql + Sync)>) {
+  ) -> (String, Vec<Box<(dyn ToSql + Sync)>>) {
     use QueryOpt::*;
 
     let columns = match columns {
@@ -133,13 +129,13 @@ impl<'a> Query<'a> {
 
   pub fn query_candles(&mut self) -> Result<Vec<Candle>> {
     let (query, params) = self.serialize(None);
-    let rows = self.con.query(query.as_str(), &params)?;
+    let rows = self.con.query(query.as_str(), &params.to_params())?;
     Ok(rows.iter().enumerate().map(Candle::from).collect())
   }
 
   pub fn count_candles(&mut self) -> Result<usize> {
     let (query, params) = self.serialize(Some("Count(*)"));
-    let rows = self.con.query(query.as_str(), &params)?;
+    let rows = self.con.query(query.as_str(), &params.to_params())?;
     Ok(rows[0].get::<usize, i64>(0) as usize)
   }
 
@@ -261,9 +257,7 @@ impl<'a> Query<'a> {
   }
 }
 
-fn db() -> String {
-  DATABASE.read().unwrap().clone()
-}
+fn db() -> String { DATABASE.read().unwrap().clone() }
 
 fn init_pool() -> DbPool {
   if !database_exists() {
@@ -279,9 +273,7 @@ fn init_pool() -> DbPool {
   );
   Pool::new(manager).unwrap()
 }
-pub fn con() -> DbCon {
-  POOL.clone().get().unwrap()
-}
+pub fn con() -> DbCon { POOL.clone().get().unwrap() }
 
 pub fn database_exists() -> bool {
   let a = Command::new("psql")
@@ -294,9 +286,7 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() {
-  con().batch_execute("DELETE FROM candles;").unwrap();
-}
+pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
 pub fn create_db() -> Result<()> {
   print!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?
@@ -453,4 +443,13 @@ pub fn _breaking_candles(
     None => None,
   };
   Ok((top, bottom))
+}
+
+trait ToParams<'a> {
+  fn to_params(&'a self) -> Vec<&'a (dyn ToSql + Sync)>;
+}
+impl<'a> ToParams<'a> for Vec<Box<(dyn ToSql + Sync)>> {
+  fn to_params(&'a self) -> Vec<&'a (dyn ToSql + Sync)> {
+    self.iter().map(|b| &**b).collect()
+  }
 }
