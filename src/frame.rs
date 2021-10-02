@@ -76,20 +76,18 @@ impl<'f> Frame<'f> {
     Ok(Frame {
       ms,
       detail_values,
+      symbol: query.symbol.clone(),
+      interval: query.interval.clone(),
       query,
       sp_values,
       dx_max,
       dy_max,
-      symbol: query.symbol.clone(),
-      interval: query.interval.clone(),
       close: detail_candles.last().unwrap().close,
       sp_detail_delta,
     })
   }
 
-  pub fn pretty_time(&self) -> String {
-    ms_to_human(&self.ms)
-  }
+  pub fn pretty_time(&self) -> String { ms_to_human(&self.ms) }
 
   fn result(&mut self) -> Result<f32> {
     let step = self.interval.to_step()?;
@@ -102,7 +100,7 @@ impl<'f> Frame<'f> {
     Ok((candle.open - self.close) as f32 / self.dy_max)
   }
 
-  fn result_rounded(&self) -> Result<f32> {
+  fn result_rounded(&mut self) -> Result<f32> {
     Ok(
       (match (self.result()? * 5.0).max(-6.0).min(6.0) {
         v if v < 0.5 && v > -0.5 => 0.0,
@@ -111,10 +109,11 @@ impl<'f> Frame<'f> {
     )
   }
 
-  pub fn write_to_csv(&self, folder_path: &str) -> Result<()> {
+  pub fn write_to_csv(&mut self, folder_path: &str) -> Result<()> {
     fs::create_dir_all(&folder_path).expect("Could not create directory");
+    let result = self.result()?;
     fs::write(
-      format!("{}/{},{}.csv", &folder_path, self.ms, self.result()?),
+      format!("{}/{},{}.csv", &folder_path, self.ms, result),
       String::from(self),
     )
     .expect("Unable to write csv");
@@ -201,6 +200,10 @@ fn compile_strong_points(
     .collect()
 }
 
+impl<'f> From<&mut Frame<'f>> for String {
+  fn from(frame: &mut Frame<'f>) -> Self { String::from(&*frame) }
+}
+
 impl<'f> From<&Frame<'f>> for String {
   fn from(frame: &Frame) -> Self {
     let mut result = String::new();
@@ -264,7 +267,7 @@ mod tests {
   fn functional_frames() -> Result<()> {
     test_prep();
 
-    let query = Query::new("BTCUSDT", "15m");
+    let mut query = Query::new("BTCUSDT", "15m");
     let step = query.step();
 
     let start = to_ms(&Utc.ymd(2020, 01, 01).and_hms(0, 0, 0), step)?;
