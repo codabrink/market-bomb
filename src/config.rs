@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-const CONF_FILE: &str = "config.toml";
+const CONF_FILE: &str = "config.json";
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -52,7 +52,7 @@ impl Config {
   pub fn load() -> Self {
     default();
 
-    let config: Config = toml::from_str(
+    let config: Config = serde_json::from_str(
       &fs::read_to_string(CONF_FILE).expect("Config file not found."),
     )
     .expect("Could not parse config file.");
@@ -71,6 +71,7 @@ fn default() {
   let config = Config {
     ..Default::default()
   };
-  fs::write(CONF_FILE, toml::to_string(&config).unwrap())
+
+  fs::write(CONF_FILE, serde_json::to_string(&config).unwrap())
     .expect("Could not write default config.");
 }

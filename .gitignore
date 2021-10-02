@@ -3,3 +3,4 @@
 /out
 /builder/csv
 *.npy
+config.json

@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
 extern crate env_logger;
-extern crate log;
 extern crate r2d2;
 
 mod prelude;
@@ -19,9 +18,7 @@ use indicatif::ProgressBar;
 use prelude::*;
 use std::fs;
 
-fn main() {
-  terminal::Terminal::new();
-}
+fn main() { terminal::Terminal::new(); }
 
 fn train(symbol: &str, interval: &str) -> Result<()> {
   // Collect all candles
