@@ -31,6 +31,8 @@ impl ApiTrait for Binance {
         end
       );
 
+      log!("url: {}", url);
+
       let body = reqwest::blocking::get(&url)?.text()?;
       let raw_candles: Vec<RawCandle> = serde_json::from_str(&body)?;
 
@@ -50,7 +52,7 @@ impl ApiTrait for Binance {
 
     let r = query.range().unwrap();
     for start in (r.start..r.end).step_by(candle_limit_ms) {
-      fetch(r.start, (r.start + candle_limit_ms as i64).min(r.end))?;
+      fetch(r.start, (start + candle_limit_ms as i64).min(r.end))?;
     }
 
     Ok(candles)

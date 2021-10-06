@@ -28,7 +28,6 @@ pub fn test() {
 }
 
 pub struct Query<'a> {
-  pub con: DbCon,
   pub symbol: &'a str,
   pub interval: &'a str,
   options: AHashMap<Discriminant<QueryOpt>, QueryOpt>,
@@ -48,7 +47,6 @@ impl<'a> Query<'a> {
     Self {
       symbol,
       interval,
-      con: con(),
       options: AHashMap::new(),
     }
   }
@@ -131,13 +129,13 @@ impl<'a> Query<'a> {
 
   pub fn query_candles(&mut self) -> Result<Vec<Candle>> {
     let (query, params) = self.serialize(None);
-    let rows = self.con.query(query.as_str(), &params.to_params())?;
+    let rows = con().query(query.as_str(), &params.to_params())?;
     Ok(rows.iter().enumerate().map(Candle::from).collect())
   }
 
   pub fn count_candles(&mut self) -> Result<usize> {
     let (query, params) = self.serialize(Some("Count(*)"));
-    let rows = self.con.query(query.as_str(), &params.to_params())?;
+    let rows = con().query(query.as_str(), &params.to_params())?;
     Ok(rows[0].get::<usize, i64>(0) as usize)
   }
 
@@ -152,8 +150,7 @@ impl<'a> Query<'a> {
       _ => bail!("Need and end of the range"),
     };
 
-    let rows = self
-          .con.query(
+    let rows = con().query(
               "
   SELECT c.open_time AS missing_open_times
   FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
@@ -190,7 +187,7 @@ impl<'a> Query<'a> {
     let p = format!("/tmp/pg_copy/{}-{}.csv", self.symbol, self.interval);
     let path = Path::new(&p);
     fs::write(path, out)?;
-    self.con.batch_execute("delete from import_candles;")?;
+    con().batch_execute("delete from import_candles;")?;
     Command::new("psql")
       .arg("-d")
       .arg(db())
@@ -202,7 +199,7 @@ impl<'a> Query<'a> {
       .output()
       .expect("Failed to copy in candles");
 
-    self.con.batch_execute(
+    con().batch_execute(
       format!(
         "
   DELETE FROM candles WHERE
@@ -220,8 +217,7 @@ impl<'a> Query<'a> {
   }
 
   pub fn insert_candle(&mut self, candle: &Candle) -> Result<()> {
-    self
-      .con
+    con()
       .execute(
         "
   INSERT INTO candles (
@@ -257,13 +253,17 @@ impl<'a> Query<'a> {
   }
 }
 
-fn db() -> String { DATABASE.read().unwrap().clone() }
+pub fn db() -> String { DATABASE.read().unwrap().clone() }
 
 fn init_pool() -> DbPool {
   if !database_exists() {
     log!("Database '{}' not found", db());
-    create_db().expect("Could not create database");
-    migrate().expect("Could not migrate database");
+    if let Err(err) = create_db() {
+      log!("Create db: {:?}", err);
+    }
+    if let Err(err) = migrate_db() {
+      log!("Migrate db: {:?}", err);
+    }
   }
   let manager = r2d2_postgres::PostgresConnectionManager::new(
     format!("host=127.0.0.1 user=postgres dbname={}", db())
@@ -288,16 +288,18 @@ pub fn database_exists() -> bool {
 }
 pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
 pub fn create_db() -> Result<()> {
-  print!("Creating database...");
+  log!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?
     .batch_execute(format!("CREATE DATABASE {};", db()).as_str())?;
   log!("Done");
   Ok(())
 }
 
-fn migrate() -> Result<()> {
+fn migrate_db() -> Result<()> {
   log!("Migrating database...");
+  log!("Creating candles...");
   migrations::create_candles_table()?;
+  log!("Creating moving averages...");
   migrations::create_moving_averages_table()?;
   log!("Done");
   Ok(())

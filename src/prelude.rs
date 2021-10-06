@@ -3,6 +3,8 @@
 mod range;
 mod time;
 
+use std::sync::RwLock;
+
 // pub use crate::api;
 pub use crate::{
   api::*,
@@ -24,6 +26,7 @@ pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;
 pub type DbCon = PooledConnection<PostgresConnectionManager<NoTls>>;
 
 lazy_static! {
+  pub static ref API: RwLock<Api> = RwLock::new(Binance::new());
   pub static ref CONFIG: Config = Config::load();
 }
 
@@ -31,8 +34,4 @@ macro_rules! log {
   ($($arg:tt)*) => {
     crate::terminal::log(format!($($arg)*));
   };
-}
-
-pub fn test_prep() {
-  crate::database::test();
 }

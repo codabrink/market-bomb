@@ -1,5 +1,13 @@
 use crate::prelude::*;
 
+fn con() -> postgres::Client {
+  Client::connect(
+    format!("host=127.0.0.1 user=postgres dbname={}", super::db()).as_str(),
+    NoTls,
+  )
+  .unwrap()
+}
+
 pub fn create_candles_table() -> Result<()> {
   con().batch_execute(
     "
@@ -37,6 +45,7 @@ CREATE TABLE moving_averages (
   len          INT NOT NULL,
   symbol       VARCHAR(10) NOT NULL,
   exponential  BOOLEAN NOT NULL,
+  val          REAL NOT NULL,
   primary key  (ms, interval, len, symbol, exponential)
 )",
   )?;

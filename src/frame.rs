@@ -265,7 +265,7 @@ mod tests {
 
   #[test]
   fn functional_frames() -> Result<()> {
-    test_prep();
+    // test_prep();
 
     let mut query = Query::new("BTCUSDT", "15m");
     let step = query.step();
