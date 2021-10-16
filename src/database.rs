@@ -62,7 +62,9 @@ impl<'a> Query<'a> {
       // self.options.insert(discriminant(opt), opt.clone());
     }
   }
-  pub fn is_empty(&self) -> bool { self.num_candles() == 0 }
+  pub fn is_empty(&self) -> bool {
+    self.num_candles() == 0
+  }
   pub fn num_candles(&self) -> usize {
     match (self.get(&Start(0)), self.get(&End(0))) {
       (Some(Start(start)), Some(End(end))) if start > end => {
@@ -71,7 +73,9 @@ impl<'a> Query<'a> {
       _ => 0,
     }
   }
-  pub fn clear(&mut self) { self.options.clear(); }
+  pub fn clear(&mut self) {
+    self.options.clear();
+  }
   pub fn remove(&'a mut self, opt: &QueryOpt) {
     self.options.remove(&discriminant(&opt));
   }
@@ -123,6 +127,7 @@ impl<'a> Query<'a> {
       DESC => "ORDER BY open_time DESC",
     });
     query.push_str(format!(" LIMIT {}", limit).as_str());
+    log!("{}", &query);
 
     (query, params)
   }
@@ -253,7 +258,9 @@ impl<'a> Query<'a> {
   }
 }
 
-pub fn db() -> String { DATABASE.read().unwrap().clone() }
+pub fn db() -> String {
+  DATABASE.read().unwrap().clone()
+}
 
 fn init_pool() -> DbPool {
   if !database_exists() {
@@ -273,7 +280,9 @@ fn init_pool() -> DbPool {
   );
   Pool::new(manager).unwrap()
 }
-pub fn con() -> DbCon { POOL.clone().get().unwrap() }
+pub fn con() -> DbCon {
+  POOL.clone().get().unwrap()
+}
 
 pub fn database_exists() -> bool {
   let a = Command::new("psql")
@@ -286,7 +295,9 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
+pub fn reset() {
+  con().batch_execute("DELETE FROM candles;").unwrap();
+}
 pub fn create_db() -> Result<()> {
   log!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?

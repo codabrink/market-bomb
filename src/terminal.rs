@@ -93,13 +93,26 @@ impl Terminal {
         );
         f.render_widget(input, chunks[0]);
 
-        let logs: Vec<ListItem> = logs
+        let mut logs: Vec<ListItem> = logs
           .iter()
           .enumerate()
-          .rev()
           .take(chunks[1].height as usize)
-          .map(|(i, l)| ListItem::new(format!("{}|{}", i, l)))
-          .collect();
+          .fold(vec![], |mut vec, (i, l)| {
+            let i = i.to_string();
+            let new_items: Vec<ListItem> = l
+              .chars()
+              .collect::<Vec<char>>()
+              .chunks(chunks[1].width as usize - (i.len() + 2))
+              .map(|c| c.iter().collect::<String>())
+              .collect::<Vec<String>>()
+              .iter()
+              .map(|l| ListItem::new(format!("{}| {}", i, l)))
+              .collect();
+            vec.extend(new_items);
+            vec
+          });
+        logs.truncate(chunks[1].height as usize);
+
         f.render_widget(
           List::new(logs)
             .block(Block::default().borders(Borders::TOP).title("Logs")),

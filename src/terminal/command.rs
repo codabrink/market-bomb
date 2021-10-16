@@ -32,7 +32,9 @@ pub fn parse_command(cmd: String) -> Result<()> {
       log!("Downloaded {} candles.", after_count - before_count);
     }
     "calculate_meta" => {}
-    _ => (),
+    _ => {
+      log!("Not recognized.");
+    }
   }
   Ok(())
 }

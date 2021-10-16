@@ -7,6 +7,7 @@ const FILE: &str = "meta.json";
 pub struct Meta {
   pub cmds: VecDeque<String>,
 }
+
 impl ::std::default::Default for Meta {
   fn default() -> Self {
     Self {
@@ -14,7 +15,7 @@ impl ::std::default::Default for Meta {
     }
   }
 }
-// testing this
+
 impl Meta {
   pub fn load() -> Result<Self> {
     let json = match fs::read_to_string(FILE) {
@@ -23,10 +24,12 @@ impl Meta {
     };
     Ok(serde_json::from_str(&json)?)
   }
+
   fn save(&self) -> Result<()> {
     let _ = fs::write(FILE, serde_json::to_string(self)?);
     Ok(())
   }
+
   pub fn log_command(cmd: impl AsRef<str>) -> Result<()> {
     let mut meta = Self::load()?;
     let cmd = cmd.as_ref();
