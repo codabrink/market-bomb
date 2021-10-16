@@ -11,6 +11,16 @@ lazy_static! {
     Regex::new(r"(?P<n>\d+)(?P<unit>[a-zA-Z])").unwrap();
 }
 
+pub trait AsMs {
+  fn as_ms(&self) -> i64;
+}
+
+impl AsMs for i64 {
+  fn as_ms(&self) -> i64 {
+    *self
+  }
+}
+
 pub trait AgoToMs {
   fn ago_ms(&self) -> Result<i64>;
 }
@@ -44,12 +54,16 @@ impl AgoToMs for &str {
   }
 }
 
-pub fn now() -> i64 { Utc::now().timestamp_millis() as i64 }
+pub fn now() -> i64 {
+  Utc::now().timestamp_millis() as i64
+}
 pub trait DateTimeToMs {
   fn to_ms(&self) -> i64;
 }
 impl DateTimeToMs for DateTime<Utc> {
-  fn to_ms(&self) -> i64 { self.timestamp_millis() as i64 }
+  fn to_ms(&self) -> i64 {
+    self.timestamp_millis() as i64
+  }
 }
 
 pub trait MsExtra {
@@ -57,7 +71,9 @@ pub trait MsExtra {
   fn to_human(&self) -> String;
 }
 impl MsExtra for i64 {
-  fn round(&self, step: i64) -> i64 { self - self % step }
+  fn round(&self, step: i64) -> i64 {
+    self - self % step
+  }
   fn to_human(&self) -> String {
     let d = UNIX_EPOCH + Duration::from_millis(*self as u64);
     let datetime = DateTime::<Utc>::from(d);
