@@ -20,6 +20,32 @@ impl AsMs for i64 {
     *self
   }
 }
+impl AsMs for &str {
+  fn as_ms(&self) -> i64 {
+    let caps = RE_INTERVAL.captures(self).unwrap();
+    let q: u128 = caps["n"].parse().unwrap_or(1);
+
+    // get self in seconds
+    let milliseconds = match &caps["unit"] {
+      "m" => 60,
+      "h" => 60 * 60,
+      "d" => 60 * 60 * 24,
+      "w" => 60 * 60 * 24 * 7,
+      v => panic!("{} is not a supported step", v),
+    } * q as i64
+      * 1000;
+
+    match self.chars().nth(0).unwrap() {
+      '-' => -milliseconds,
+      _ => milliseconds,
+    }
+  }
+}
+impl AsMs for String {
+  fn as_ms(&self) -> i64 {
+    self.as_str().as_ms()
+  }
+}
 
 pub trait AgoToMs {
   fn ago_ms(&self) -> Result<i64>;
@@ -44,65 +70,33 @@ impl AgoToMs for &str {
       _ => (),
     };
 
-    Ok(
-      Utc
-        .ymd(y, m, d)
-        .and_hms(h, 0, 0)
-        .to_ms()
-        .round("15m".to_step()?),
-    )
+    Ok(Utc.ymd(y, m, d).and_hms(h, 0, 0).as_ms().round("15m"))
   }
 }
 
 pub fn now() -> i64 {
   Utc::now().timestamp_millis() as i64
 }
-pub trait DateTimeToMs {
-  fn to_ms(&self) -> i64;
-}
-impl DateTimeToMs for DateTime<Utc> {
-  fn to_ms(&self) -> i64 {
+
+impl AsMs for DateTime<Utc> {
+  fn as_ms(&self) -> i64 {
     self.timestamp_millis() as i64
   }
 }
 
 pub trait MsExtra {
-  fn round(&self, step: i64) -> i64;
+  fn round(&self, step: impl AsMs) -> i64;
   fn to_human(&self) -> String;
 }
 impl MsExtra for i64 {
-  fn round(&self, step: i64) -> i64 {
+  fn round(&self, step: impl AsMs) -> i64 {
+    let step = step.as_ms();
     self - self % step
   }
   fn to_human(&self) -> String {
     let d = UNIX_EPOCH + Duration::from_millis(*self as u64);
     let datetime = DateTime::<Utc>::from(d);
     datetime.format(DATETIME_FORMAT).to_string()
-  }
-}
-
-pub trait StrToMs {
-  fn to_step(&self) -> Result<i64>;
-}
-impl StrToMs for &str {
-  fn to_step(&self) -> Result<i64> {
-    let caps = RE_INTERVAL.captures(self).unwrap();
-    let q: u128 = caps["n"].parse().unwrap_or(1);
-
-    // get self in seconds
-    let milliseconds = match &caps["unit"] {
-      "m" => 60,
-      "h" => 60 * 60,
-      "d" => 60 * 60 * 24,
-      "w" => 60 * 60 * 24 * 7,
-      v => return Err(anyhow!("{} is not a supported step", v)),
-    } * q as i64
-      * 1000;
-
-    Ok(match self.chars().nth(0).unwrap() {
-      '-' => -milliseconds,
-      _ => milliseconds,
-    })
   }
 }
 

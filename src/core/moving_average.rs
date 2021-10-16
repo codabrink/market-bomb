@@ -11,7 +11,7 @@ pub struct MovingAverage {
 
 impl MovingAverage {
   fn save(&mut self) -> Result<()> {
-    let step = self.interval.as_str().to_step()?;
+    let step = self.interval.as_ms();
     let ms = self.ms.round(step);
 
     let mut query = Query::new(&self.symbol, &self.interval);

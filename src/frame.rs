@@ -87,10 +87,12 @@ impl<'f> Frame<'f> {
     })
   }
 
-  pub fn pretty_time(&self) -> String { self.ms.to_human() }
+  pub fn pretty_time(&self) -> String {
+    self.ms.to_human()
+  }
 
   fn result(&mut self) -> Result<f32> {
-    let step = self.interval.to_step()?;
+    let step = self.interval.as_ms();
     let result_ms =
       self.ms + step * CONFIG.export.predict_candles_forward as i64;
     let candle = match self.query.query_candles() {
@@ -151,7 +153,7 @@ impl<'f> Frame<'f> {
     let ml_output: f32 = fs::read_to_string("prediction")?.parse()?;
     let _ = fs::remove_file("prediction");
 
-    let step = self.interval.to_step()?;
+    let step = self.interval.as_ms();
     let mut prediction_time_ms = step * CONFIG.predict_candles_forward() as i64;
     prediction_time_ms += self.ms.round(step);
     let prediction_time_human = &prediction_time_ms.to_human();
@@ -201,7 +203,9 @@ fn compile_strong_points(
 }
 
 impl<'f> From<&mut Frame<'f>> for String {
-  fn from(frame: &mut Frame<'f>) -> Self { String::from(&*frame) }
+  fn from(frame: &mut Frame<'f>) -> Self {
+    String::from(&*frame)
+  }
 }
 
 impl<'f> From<&Frame<'f>> for String {
@@ -270,7 +274,7 @@ mod tests {
     let mut query = Query::new("BTCUSDT", "15m");
     let step = query.step();
 
-    let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).to_ms().round(step);
+    let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).as_ms().round(step);
     let end = start + step * 100;
 
     query.set_all(&[Start(start), End(end)]);

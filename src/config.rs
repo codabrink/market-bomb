@@ -12,7 +12,7 @@ pub struct Config {
   // Percent profit expected to vote to take the trade
   pub min_profit: f32,
   // milliseconds expected to sit in a trade
-  pub trade_duration_ms: u64,
+  pub trade_duration_ms: i64,
   pub history_num_candles: i64,
   pub strong_points: StrongPointsConfig,
   pub export: ExportConfig,
@@ -35,7 +35,7 @@ impl ::std::default::Default for Config {
       transaction_slippage: 0.01,
       query_limit: 2000,
       min_profit: 0.1,
-      trade_duration_ms: "1d".to_step().unwrap() as u64,
+      trade_duration_ms: "1d".as_ms(),
       history_num_candles: 10000,
       export: ExportConfig {
         detail_view_len: 32,

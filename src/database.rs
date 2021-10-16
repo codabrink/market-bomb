@@ -86,10 +86,7 @@ impl<'a> Query<'a> {
     }
   }
   pub fn step(&self) -> i64 {
-    self
-      .interval
-      .to_step()
-      .expect("Could not convert interval to step")
+    self.interval.as_ms()
   }
 
   fn serialize(
@@ -148,7 +145,7 @@ impl<'a> Query<'a> {
   }
 
   pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
-    let step = self.interval.to_step()?;
+    let step = self.interval.as_ms();
     let start = match self.get(&Start(0)) {
       Some(Start(s)) => *s,
       _ => bail!("Need a beginning of the range"),
@@ -355,7 +352,7 @@ pub fn calculate_all_ma(con: &mut DbCon, interval: &str) -> Result<()> {
 
 pub fn calculate_domain(con: &mut DbCon, interval: &str) -> Result<()> {
   log!("Calculating domain for... {}", interval);
-  let step = interval.to_step()?;
+  let step = interval.as_ms();
   con.execute(
     "
 UPDATE candles AS a
@@ -398,7 +395,7 @@ pub fn _breaking_candles(
   high: Option<f32>,
   low: Option<f32>,
 ) -> Result<(Option<Vec<i64>>, Option<Vec<i64>>)> {
-  let day_step = "1d".to_step()?;
+  let day_step = "1d".as_ms();
   let day_ms = open_time.round(day_step);
 
   // if days are equally distant, return both. If not, return closest.

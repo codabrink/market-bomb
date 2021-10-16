@@ -18,7 +18,9 @@ use indicatif::ProgressBar;
 use prelude::*;
 use std::fs;
 
-fn main() { terminal::Terminal::new(); }
+fn main() {
+  terminal::Terminal::new();
+}
 
 fn train(symbol: &str, interval: &str) -> Result<()> {
   // Collect all candles
@@ -34,7 +36,7 @@ fn train(symbol: &str, interval: &str) -> Result<()> {
   let _ = fs::remove_file("builder/features.npy");
   let _ = fs::remove_file("builder/labels.npy");
 
-  let step = interval.to_step()?;
+  let step = interval.as_ms();
   let now = now().round(step);
   let then = now - CONFIG.history_num_candles * step;
 
@@ -61,7 +63,7 @@ fn predict_now(symbol: &str, interval: &str) -> Result<()> {
   let mut con = con();
   let _ = fs::remove_dir_all("builder/csv/predict");
 
-  let step = interval.to_step()?;
+  let step = interval.as_ms();
   let now = now().round(step);
   // match Frame::new(&mut con, symbol, interval, now) {
   // Ok(frame) => {
@@ -74,8 +76,8 @@ fn predict_now(symbol: &str, interval: &str) -> Result<()> {
 
 fn predict(symbol: &str, interval: &str, relative: &str) -> Result<()> {
   let mut con = con();
-  let step = interval.to_step()?;
-  let relative = relative.to_step()?;
+  let step = interval.as_ms();
+  let relative = relative.as_ms();
   assert!(relative < 0);
   let ms = (now() + relative).round(step);
   // match Frame::new(&mut con, symbol, interval, ms) {
