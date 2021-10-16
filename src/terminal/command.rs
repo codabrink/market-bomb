@@ -25,8 +25,11 @@ pub fn parse_command(cmd: String) -> Result<()> {
       }
       log!("Downloading candles from {} to {}.", start, end);
 
+      let before_count = query.count_candles()?;
       let api = Binance::new();
-      let _ = api.fetch_candles(&mut query);
+      let _ = api.fetch_candles(&mut query)?;
+      let after_count = query.count_candles()?;
+      log!("Downloaded {} candles.", after_count - before_count);
     }
     "calculate_meta" => {}
     _ => (),

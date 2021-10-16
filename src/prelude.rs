@@ -17,6 +17,8 @@ pub use ahash::{AHashMap, AHashSet};
 pub use anyhow::{bail, Result};
 pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 pub use range::*;
+pub use serde::{Deserialize, Serialize};
+pub use std::fs;
 pub use time::*;
 
 pub use postgres::{types::ToSql, Client, NoTls};

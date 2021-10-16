@@ -74,6 +74,7 @@ impl Terminal {
     let mut terminal = TuiTerminal::new(backend)?;
 
     let mut logs: VecDeque<String> = VecDeque::new();
+    let mut cmd_index = 0;
 
     loop {
       terminal.draw(|f| {
@@ -107,10 +108,8 @@ impl Terminal {
       })?;
 
       for log in LOG.1.try_iter() {
-        logs.push_back(log);
-        if logs.len() > 300 {
-          logs.pop_front();
-        }
+        logs.push_front(log);
+        logs.truncate(300);
       }
 
       match self.events.recv()? {
@@ -119,9 +118,27 @@ impl Terminal {
             drop(terminal);
             std::process::exit(0);
           }
+          Key::Ctrl('p') => {
+            let meta = Meta::load()?;
+            let cmd = meta.cmds.get(cmd_index);
+            if let Some(cmd) = cmd {
+              self.input = cmd.clone();
+              cmd_index += 1;
+            }
+          }
+          Key::Ctrl('n') => {
+            cmd_index = cmd_index.saturating_sub(1);
+            let meta = Meta::load()?;
+            let cmd = meta.cmds.get(cmd_index);
+            if let Some(cmd) = cmd {
+              self.input = cmd.clone();
+            }
+          }
           Key::Char('\n') => {
             let cmd = std::mem::replace(&mut self.input, String::new());
-            // TODO: isolate into thread
+            Meta::log_command(&cmd)?;
+            cmd_index = 0;
+
             thread::spawn(move || {
               if let Err(e) = command::parse_command(cmd) {
                 log!("Command: {:?}", e);

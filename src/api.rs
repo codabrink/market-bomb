@@ -36,7 +36,6 @@ impl Api {
       );
 
       for range in missing {
-        log!("here");
         // split the range up so we don't get rate-limited
         let candles = match self {
           Self::Binance(b) => b.fetch_candles(query),

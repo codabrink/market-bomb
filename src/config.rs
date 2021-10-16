@@ -1,5 +1,4 @@
 use crate::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
@@ -58,8 +57,12 @@ impl Config {
     .expect("Could not parse config file.");
     config
   }
-  pub fn export_detail_len(&self) -> usize { self.export.detail_view_len }
-  pub fn export_sp_len(&self) -> usize { self.export.strong_point_length }
+  pub fn export_detail_len(&self) -> usize {
+    self.export.detail_view_len
+  }
+  pub fn export_sp_len(&self) -> usize {
+    self.export.strong_point_length
+  }
   pub fn predict_candles_forward(&self) -> usize {
     self.export.predict_candles_forward
   }

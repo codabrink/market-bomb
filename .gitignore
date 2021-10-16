@@ -4,3 +4,4 @@
 /builder/csv
 *.npy
 config.json
+meta.json
