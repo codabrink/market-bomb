@@ -99,6 +99,7 @@ impl Terminal {
           .take(chunks[1].height as usize)
           .fold(vec![], |mut vec, (i, l)| {
             let i = i.to_string();
+            // inneficient
             let new_items: Vec<ListItem> = l
               .chars()
               .collect::<Vec<char>>()

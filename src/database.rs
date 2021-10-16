@@ -104,7 +104,7 @@ impl<'a> Query<'a> {
     };
 
     let mut query = format!(
-      r#"SELECT {} FROM candles WHERE symbol = {} AND interval = {} AND dead = false"#,
+      r#"SELECT {} FROM candles WHERE symbol = '{}' AND interval = '{}' AND dead = false"#,
       columns, self.symbol, self.interval
     );
     let params = vec![];
@@ -115,18 +115,21 @@ impl<'a> Query<'a> {
     for (_, o) in &self.options {
       match o {
         Start(start) => query.push_str(&format!(" AND open_time >= {}", start)),
-        End(end) => query.push_str(&format!(" AND close_time >= {}", end)),
+        End(end) => query.push_str(&format!(" AND open_time <= {}", end)),
         Limit(l) => limit = *l,
         Order(o) => order = o.clone(),
         _ => {}
       };
     }
 
-    query.push_str(match order {
-      ASC => "ORDER BY open_time ASC",
-      DESC => "ORDER BY open_time DESC",
-    });
-    query.push_str(format!(" LIMIT {}", limit).as_str());
+    if !columns.to_lowercase().contains("count(*)") {
+      query.push_str(match order {
+        ASC => " ORDER BY open_time ASC",
+        DESC => " ORDER BY open_time DESC",
+      });
+      query.push_str(format!(" LIMIT {}", limit).as_str());
+    }
+
     log!("{}", &query);
 
     (query, params)
@@ -139,7 +142,7 @@ impl<'a> Query<'a> {
   }
 
   pub fn count_candles(&mut self) -> Result<usize> {
-    let (query, params) = self.serialize(Some("Count(*)"));
+    let (query, params) = self.serialize(Some("COUNT(*)"));
     let rows = con().query(query.as_str(), &params.to_params())?;
     Ok(rows[0].get::<usize, i64>(0) as usize)
   }
