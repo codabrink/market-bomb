@@ -26,7 +26,7 @@ impl<'f> Frame<'f> {
 
     // First grab the detail candles (custom query)
     // Then grab strong points that are before (custom query)
-    query.set_all(&[
+    query.set_all(vec![
       Start(ms - step * CONFIG.export.detail_view_len as i64),
       End(ms),
       Order(DESC),
@@ -38,7 +38,7 @@ impl<'f> Frame<'f> {
     assert_eq!(detail_candles.last().unwrap().open_time, ms);
 
     query.clear();
-    query.set_all(&[
+    query.set_all(vec![
       BottomDomain(min_domain),
       TopDomain(min_domain),
       Limit(CONFIG.export.strong_point_length),
@@ -92,7 +92,7 @@ impl<'f> Frame<'f> {
   }
 
   fn result(&mut self) -> Result<f32> {
-    let step = self.interval.as_ms();
+    let step = self.interval.ms();
     let result_ms =
       self.ms + step * CONFIG.export.predict_candles_forward as i64;
     let candle = match self.query.query_candles() {
@@ -153,7 +153,7 @@ impl<'f> Frame<'f> {
     let ml_output: f32 = fs::read_to_string("prediction")?.parse()?;
     let _ = fs::remove_file("prediction");
 
-    let step = self.interval.as_ms();
+    let step = self.interval.ms();
     let mut prediction_time_ms = step * CONFIG.predict_candles_forward() as i64;
     prediction_time_ms += self.ms.round(step);
     let prediction_time_human = &prediction_time_ms.to_human();
@@ -274,15 +274,15 @@ mod tests {
     let mut query = Query::new("BTCUSDT", "15m");
     let step = query.step();
 
-    let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).as_ms().round(step);
+    let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).ms().round(step);
     let end = start + step * 100;
 
-    query.set_all(&[Start(start), End(end)]);
+    query.set_all(vec![Start(start), End(end)]);
     let missing = query.missing_candles()?;
 
     assert_eq!(missing.len(), 1);
     assert_eq!(missing[0].start, start);
-    assert_eq!(missing[0].end, end - step); // ends in range are non-inclusive
+    assert_eq!(missing[0].end, end);
 
     let api = Binance::new();
     let candles = api.fetch_candles(&mut query)?;

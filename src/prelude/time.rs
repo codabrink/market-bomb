@@ -1,4 +1,3 @@
-use anyhow::{anyhow, Result};
 use chrono;
 use chrono::Datelike;
 use chrono::{prelude::*, Utc};
@@ -12,16 +11,16 @@ lazy_static! {
 }
 
 pub trait AsMs {
-  fn as_ms(&self) -> i64;
+  fn ms(&self) -> i64;
 }
 
 impl AsMs for i64 {
-  fn as_ms(&self) -> i64 {
+  fn ms(&self) -> i64 {
     *self
   }
 }
 impl AsMs for &str {
-  fn as_ms(&self) -> i64 {
+  fn ms(&self) -> i64 {
     let caps = RE_INTERVAL.captures(self).unwrap();
     let q: u128 = caps["n"].parse().unwrap_or(1);
 
@@ -42,35 +41,50 @@ impl AsMs for &str {
   }
 }
 impl AsMs for String {
-  fn as_ms(&self) -> i64 {
-    self.as_str().as_ms()
+  fn ms(&self) -> i64 {
+    self.as_str().ms()
   }
 }
 
 pub trait AgoToMs {
-  fn ago_ms(&self) -> Result<i64>;
+  fn ago(&self) -> i64;
 }
 impl AgoToMs for &str {
-  fn ago_ms(&self) -> Result<i64> {
+  fn ago(&self) -> i64 {
     let input = self.as_ref();
-    let now = chrono::Utc::now();
     let caps = RE_INTERVAL.captures(input).unwrap();
-    let mut y = now.year();
-    let mut m = now.month();
-    let mut d = now.day();
-    let mut h = now.hour();
-
-    let n: u32 = caps["n"].parse()?;
 
     match &caps["unit"] {
-      "y" => y -= n as i32,
-      "m" => m -= n,
-      "d" => d -= n,
-      "h" => h -= n,
-      _ => (),
+      "y" | "M" => {
+        let now = chrono::Utc::now();
+        let n: u32 = caps["n"].parse().unwrap();
+        let mut year = now.year() as u32;
+        let mut month = now.month();
+        match &caps["unit"] {
+          "y" => year -= n,
+          "M" => {
+            year -= n / 12;
+            month -= n % 12;
+          }
+          _ => unreachable!(),
+        }
+        return Utc
+          .ymd(year as i32, month, now.day())
+          .and_hms(now.hour(), now.minute(), 0)
+          .ms();
+      }
+      _ => {
+        let mut now = now();
+        let n: i64 = caps["n"].parse().unwrap();
+        match &caps["unit"] {
+          "d" => now -= n * "1d".ms(),
+          "h" => now -= n * "1h".ms(),
+          "m" => now -= n * "1m".ms(),
+          _ => {}
+        }
+        return now;
+      }
     };
-
-    Ok(Utc.ymd(y, m, d).and_hms(h, 0, 0).as_ms().round("15m"))
   }
 }
 
@@ -79,7 +93,7 @@ pub fn now() -> i64 {
 }
 
 impl AsMs for DateTime<Utc> {
-  fn as_ms(&self) -> i64 {
+  fn ms(&self) -> i64 {
     self.timestamp_millis() as i64
   }
 }
@@ -90,7 +104,7 @@ pub trait MsExtra {
 }
 impl MsExtra for i64 {
   fn round(&self, step: impl AsMs) -> i64 {
-    let step = step.as_ms();
+    let step = step.ms();
     self - self % step
   }
   fn to_human(&self) -> String {

@@ -35,7 +35,7 @@ impl ::std::default::Default for Config {
       transaction_slippage: 0.01,
       query_limit: 2000,
       min_profit: 0.1,
-      trade_duration_ms: "1d".as_ms(),
+      trade_duration_ms: "1d".ms(),
       history_num_candles: 10000,
       export: ExportConfig {
         detail_view_len: 32,

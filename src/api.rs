@@ -16,7 +16,6 @@ pub enum Api {
 
 impl Api {
   pub fn fetch_candles(&self, query: &mut Query) -> Result<Vec<Candle>> {
-    let mut con = con();
     let step = query.step();
 
     for _ in 0..2 {
@@ -37,6 +36,7 @@ impl Api {
 
       for range in missing {
         // split the range up so we don't get rate-limited
+        query.set_all(vec![Start(range.start), End(range.end)]);
         let candles = match self {
           Self::Binance(b) => b.fetch_candles(query),
         }?;

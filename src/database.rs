@@ -56,10 +56,9 @@ impl<'a> Query<'a> {
   pub fn set(&mut self, opt: QueryOpt) {
     self.options.insert(discriminant(&opt), opt);
   }
-  pub fn set_all(&mut self, opt: &[QueryOpt]) {
+  pub fn set_all(&mut self, opt: Vec<QueryOpt>) {
     for opt in opt {
-      self.set(opt.clone());
-      // self.options.insert(discriminant(opt), opt.clone());
+      self.set(opt);
     }
   }
   pub fn is_empty(&self) -> bool {
@@ -86,7 +85,7 @@ impl<'a> Query<'a> {
     }
   }
   pub fn step(&self) -> i64 {
-    self.interval.as_ms()
+    self.interval.ms()
   }
 
   fn serialize(
@@ -107,7 +106,6 @@ impl<'a> Query<'a> {
     let params = vec![];
     let mut limit = CONFIG.query_limit;
     let mut order = ASC;
-    let mut i = 2;
 
     for (_, o) in &self.options {
       match o {
@@ -145,7 +143,7 @@ impl<'a> Query<'a> {
   }
 
   pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
-    let step = self.interval.as_ms();
+    let step = self.interval.ms();
     let start = match self.get(&Start(0)) {
       Some(Start(s)) => *s,
       _ => bail!("Need a beginning of the range"),
@@ -325,34 +323,9 @@ pub fn update_domain(con: &mut DbCon, id: &i32, (top, bottom): (i32, i32)) {
     .unwrap();
 }
 
-fn ma_calc_query(len: usize) -> String {
-  format!(
-    "
-  UPDATE candles as a
-    SET ma_{len} = SUM(
-      SELECT b.close FROM candles as b
-      WHERE b.open_time < a.open_time AND
-      b.symbol = a.symbol AND
-      b.interval = a.interval
-      ORDER BY b.open_time DESC
-      LIMIT {len}
-    ) / {len};",
-    len = len
-  )
-}
-
-pub fn calculate_all_ma(con: &mut DbCon, interval: &str) -> Result<()> {
-  for len in [20, 50, 200] {
-    log!("Calculating {} ma..", len);
-    con.batch_execute(&ma_calc_query(len))?;
-  }
-
-  Ok(())
-}
-
 pub fn calculate_domain(con: &mut DbCon, interval: &str) -> Result<()> {
   log!("Calculating domain for... {}", interval);
-  let step = interval.as_ms();
+  let step = interval.ms();
   con.execute(
     "
 UPDATE candles AS a
@@ -395,7 +368,7 @@ pub fn _breaking_candles(
   high: Option<f32>,
   low: Option<f32>,
 ) -> Result<(Option<Vec<i64>>, Option<Vec<i64>>)> {
-  let day_step = "1d".as_ms();
+  let day_step = "1d".ms();
   let day_ms = open_time.round(day_step);
 
   // if days are equally distant, return both. If not, return closest.
@@ -437,5 +410,18 @@ trait ToParams<'a> {
 impl<'a> ToParams<'a> for Vec<Box<(dyn ToSql + Sync)>> {
   fn to_params(&'a self) -> Vec<&'a (dyn ToSql + Sync)> {
     self.iter().map(|b| &**b).collect()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::prelude::*;
+
+  #[test]
+  fn query_works() -> Result<()> {
+    let mut query = Query::new("BTCUSDT", "15m");
+    query.set_all(vec![Start("30m".ago()), End("15m".ago())]);
+
+    Ok(())
   }
 }

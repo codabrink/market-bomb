@@ -11,11 +11,11 @@ pub struct MovingAverage {
 
 impl MovingAverage {
   fn save(&mut self) -> Result<()> {
-    let step = self.interval.as_ms();
+    let step = self.interval.ms();
     let ms = self.ms.round(step);
 
     let mut query = Query::new(&self.symbol, &self.interval);
-    query.set_all(&[Start(ms - step * self.len as i64), End(ms)]);
+    query.set_all(vec![Start(ms - step * self.len as i64), End(ms)]);
 
     let candles = API.read().unwrap().fetch_candles(&mut query)?;
 

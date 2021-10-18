@@ -36,7 +36,7 @@ fn train(symbol: &str, interval: &str) -> Result<()> {
   let _ = fs::remove_file("builder/features.npy");
   let _ = fs::remove_file("builder/labels.npy");
 
-  let step = interval.as_ms();
+  let step = interval.ms();
   let now = now().round(step);
   let then = now - CONFIG.history_num_candles * step;
 
@@ -63,7 +63,7 @@ fn predict_now(symbol: &str, interval: &str) -> Result<()> {
   let mut con = con();
   let _ = fs::remove_dir_all("builder/csv/predict");
 
-  let step = interval.as_ms();
+  let step = interval.ms();
   let now = now().round(step);
   // match Frame::new(&mut con, symbol, interval, now) {
   // Ok(frame) => {
@@ -76,8 +76,8 @@ fn predict_now(symbol: &str, interval: &str) -> Result<()> {
 
 fn predict(symbol: &str, interval: &str, relative: &str) -> Result<()> {
   let mut con = con();
-  let step = interval.as_ms();
-  let relative = relative.as_ms();
+  let step = interval.ms();
+  let relative = relative.ms();
   assert!(relative < 0);
   let ms = (now() + relative).round(step);
   // match Frame::new(&mut con, symbol, interval, ms) {

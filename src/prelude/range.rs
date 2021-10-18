@@ -6,7 +6,7 @@ pub trait MarketBombVecRange {
 }
 impl MarketBombVecRange for Vec<Range<i64>> {
   fn num_candles(&self, step: impl AsMs) -> usize {
-    let step = step.as_ms();
+    let step = step.ms();
     self.iter().fold(0, |v, r| v + r.num_candles(step))
   }
 }
@@ -19,15 +19,15 @@ pub trait MarketBombRange<T> {
 
 impl MarketBombRange<Range<i64>> for Range<i64> {
   fn round(&self, step: impl AsMs) -> Self {
-    let step = step.as_ms();
+    let step = step.ms();
     self.start.round(step)..self.end.round(step)
   }
   fn num_candles(&self, step: impl AsMs) -> usize {
-    let step = step.as_ms();
+    let step = step.ms();
     ((self.end - self.start) / step) as usize
   }
   fn chunk(&self, step: impl AsMs, n: usize) -> Vec<Range<i64>> {
-    let step = step.as_ms();
+    let step = step.ms();
     let mut result = vec![];
     for i in (self.start..self.end).step_by(step as usize * n) {
       result.push(i..(i + step).min(self.end))
