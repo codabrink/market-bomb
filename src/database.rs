@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use anyhow::Result;
 use std::{
+  hash::{Hash, Hasher},
   mem::{discriminant, Discriminant},
   ops::Range,
   process::Command,
@@ -12,7 +13,7 @@ mod migrations;
 lazy_static! {
   pub static ref POOL: DbPool = init_pool();
 }
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Order {
   ASC,
   DESC,
@@ -30,10 +31,10 @@ pub fn test() {
 pub struct Query<'a> {
   pub symbol: &'a str,
   pub interval: &'a str,
-  options: AHashMap<Discriminant<QueryOpt>, QueryOpt>,
+  options: AHashSet<QueryOpt>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq)]
 pub enum QueryOpt {
   Start(i64),
   End(i64),
@@ -42,51 +43,81 @@ pub enum QueryOpt {
   TopDomain(i32),
   BottomDomain(i32),
 }
+
+impl PartialEq for QueryOpt {
+  fn eq(&self, other: &Self) -> bool {
+    discriminant(self) == discriminant(other)
+  }
+}
+impl Hash for QueryOpt {
+  fn hash<H: Hasher>(&self, state: &mut H) { discriminant(self).hash(state); }
+}
+
 impl<'a> Query<'a> {
   pub fn new(symbol: &'a str, interval: &'a str) -> Self {
     Self {
       symbol,
       interval,
-      options: AHashMap::new(),
+      options: AHashSet::new(),
     }
   }
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
-    self.options.get(&discriminant(opt))
+    self.options.get(opt)
   }
   pub fn set(&mut self, opt: QueryOpt) {
-    self.options.insert(discriminant(&opt), opt);
+    // round time values to interval
+    let opt = match opt {
+      Start(start) => Start(start.round(self.interval)),
+      End(end) => End(end.round(self.interval)),
+      v => v,
+    };
+
+    self.options.replace(opt);
   }
+
   pub fn set_all(&mut self, opt: Vec<QueryOpt>) {
     for opt in opt {
       self.set(opt);
     }
   }
-  pub fn is_empty(&self) -> bool {
-    self.num_candles() == 0
-  }
+
+  pub fn is_empty(&self) -> bool { self.num_candles() == 0 }
+
   pub fn num_candles(&self) -> usize {
     match (self.get(&Start(0)), self.get(&End(0))) {
-      (Some(Start(start)), Some(End(end))) if start > end => {
+      (Some(Start(start)), Some(End(end))) if start < end => {
         (*start..*end).num_candles(self.step())
       }
       _ => 0,
     }
   }
-  pub fn clear(&mut self) {
-    self.options.clear();
-  }
-  pub fn remove(&'a mut self, opt: &QueryOpt) {
-    self.options.remove(&discriminant(&opt));
-  }
+
+  pub fn clear(&mut self) { self.options.clear(); }
+
+  pub fn remove(&'a mut self, opt: &QueryOpt) { self.options.remove(&opt); }
+
   pub fn range(&self) -> Option<Range<i64>> {
     match (self.get(&Start(0)), self.get(&End(0))) {
       (Some(Start(start)), Some(End(end))) => Some(*start..*end),
       _ => None,
     }
   }
-  pub fn step(&self) -> i64 {
-    self.interval.ms()
+
+  pub fn start(&self) -> Option<i64> {
+    if let Some(Start(v)) = self.get(&Start(0)) {
+      return Some(*v);
+    }
+    None
   }
+
+  pub fn end(&self) -> Option<i64> {
+    if let Some(End(v)) = self.get(&End(0)) {
+      return Some(*v);
+    }
+    None
+  }
+
+  pub fn step(&self) -> i64 { self.interval.ms() }
 
   fn serialize(
     &self,
@@ -107,7 +138,7 @@ impl<'a> Query<'a> {
     let mut limit = CONFIG.query_limit;
     let mut order = ASC;
 
-    for (_, o) in &self.options {
+    for o in &self.options {
       match o {
         Start(start) => query.push_str(&format!(" AND open_time >= {}", start)),
         End(end) => query.push_str(&format!(" AND open_time <= {}", end)),
@@ -256,9 +287,7 @@ impl<'a> Query<'a> {
   }
 }
 
-pub fn db() -> String {
-  DATABASE.read().unwrap().clone()
-}
+pub fn db() -> String { DATABASE.read().unwrap().clone() }
 
 fn init_pool() -> DbPool {
   if !database_exists() {
@@ -278,9 +307,7 @@ fn init_pool() -> DbPool {
   );
   Pool::new(manager).unwrap()
 }
-pub fn con() -> DbCon {
-  POOL.clone().get().unwrap()
-}
+pub fn con() -> DbCon { POOL.clone().get().unwrap() }
 
 pub fn database_exists() -> bool {
   let a = Command::new("psql")
@@ -293,9 +320,7 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() {
-  con().batch_execute("DELETE FROM candles;").unwrap();
-}
+pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
 pub fn create_db() -> Result<()> {
   log!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?
@@ -420,7 +445,9 @@ mod tests {
   #[test]
   fn query_works() -> Result<()> {
     let mut query = Query::new("BTCUSDT", "15m");
-    query.set_all(vec![Start("30m".ago()), End("15m".ago())]);
+    query.set_all(vec![Start("1h".ago()), End("0m".ago())]);
+
+    assert!(!query.is_empty());
 
     Ok(())
   }
