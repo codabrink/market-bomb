@@ -17,6 +17,7 @@ pub enum Api {
 impl Api {
   pub fn fetch_candles(&self, query: &mut Query) -> Result<Vec<Candle>> {
     let step = query.step();
+    let range = query.range().expect("Query needs a start and an end.");
 
     for _ in 0..2 {
       let missing = query.missing_candles()?;
@@ -37,15 +38,19 @@ impl Api {
       for range in missing {
         // split the range up so we don't get rate-limited
         query.set_all(vec![Start(range.start), End(range.end)]);
+        log!("missing: {:?}", range);
         let candles = match self {
-          Self::Binance(b) => b.fetch_candles(query),
+          Self::Binance(b) => b.fetch_candles(&query),
         }?;
+
         log!("Api returned {} candles.", candles.len());
         for candle in candles {
           query.insert_candle(&candle)?;
         }
       }
     }
+
+    query.set_range(range.clone());
 
     // Insert remaining missing candles as dead
     let mut dead_count = 0;
@@ -64,6 +69,8 @@ impl Api {
     if dead_count > 0 {
       log!("Inserted {} dead candles.", dead_count);
     }
+
+    query.set_range(range);
 
     Ok(query.query_candles()?)
   }

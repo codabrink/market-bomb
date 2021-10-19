@@ -6,15 +6,8 @@ const CANDLE_LIMIT: i64 = 500;
 
 pub struct Binance {}
 impl ApiTrait for Binance {
-  fn new() -> Api {
-    Api::Binance(Self {})
-  }
+  fn new() -> Api { Api::Binance(Self {}) }
   fn fetch_candles(&self, query: &Query) -> Result<Vec<Candle>> {
-    if query.is_empty() {
-      log!("Query is empty");
-      return Ok(vec![]);
-    }
-
     let step = query.step();
 
     let candle_limit_ms = (CANDLE_LIMIT * step) as usize;
@@ -22,10 +15,6 @@ impl ApiTrait for Binance {
     let mut candles = Vec::with_capacity(expected as usize);
 
     let mut fetch = |start: i64, end: i64| -> Result<()> {
-      // if ARGS.is_present("verbose") {
-      // log!("Fetching: {} to {}", start, end);
-      // }
-
       let url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval={}&startTime={}&endTime={}",
         query.symbol,
@@ -39,10 +28,6 @@ impl ApiTrait for Binance {
       let body = reqwest::blocking::get(&url)?.text()?;
       let raw_candles: Vec<RawCandle> = serde_json::from_str(&body)?;
 
-      // if ARGS.is_present("verbose") {
-      // log!("Api responded with {} candles", raw_candles.len());
-      // }
-
       candles.extend(
         raw_candles
           .iter()
@@ -54,6 +39,7 @@ impl ApiTrait for Binance {
     };
 
     let r = query.range().unwrap();
+    let r = r.start..(r.end - 1);
     for start in (r.start..r.end).step_by(candle_limit_ms) {
       fetch(r.start, (start + candle_limit_ms as i64).min(r.end))?;
     }

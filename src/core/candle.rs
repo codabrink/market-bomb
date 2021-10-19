@@ -21,7 +21,7 @@ pub struct Candle {
 }
 
 impl Candle {
-  pub const DB_COLUMNS: &'static str = "id, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, indicators";
+  pub const DB_COLUMNS: &'static str = "id, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain";
 
   pub fn contains_ms(&self, ms: i64) -> bool {
     self.open_time <= ms && self.close_time >= ms

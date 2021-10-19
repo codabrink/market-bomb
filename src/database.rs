@@ -2,7 +2,7 @@ use crate::prelude::*;
 use anyhow::Result;
 use std::{
   hash::{Hash, Hasher},
-  mem::{discriminant, Discriminant},
+  mem::discriminant,
   ops::Range,
   process::Command,
   sync::RwLock,
@@ -28,6 +28,7 @@ pub fn test() {
   let _ = con().batch_execute("DELETE FROM candles;");
 }
 
+#[derive(Clone)]
 pub struct Query<'a> {
   pub symbol: &'a str,
   pub interval: &'a str,
@@ -96,6 +97,9 @@ impl<'a> Query<'a> {
 
   pub fn remove(&'a mut self, opt: &QueryOpt) { self.options.remove(&opt); }
 
+  pub fn set_range(&mut self, range: Range<i64>) {
+    self.set_all(vec![Start(range.start), End(range.end)]);
+  }
   pub fn range(&self) -> Option<Range<i64>> {
     match (self.get(&Start(0)), self.get(&End(0))) {
       (Some(Start(start)), Some(End(end))) => Some(*start..*end),
@@ -214,7 +218,7 @@ impl<'a> Query<'a> {
     use std::path::Path;
 
     fs::create_dir_all("/tmp/pg_copy")?;
-    let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, dead, indicators";
+    let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, dead";
     let mut _out = String::from(format!("{}\n", header));
     _out.push_str(out.as_str());
 
@@ -251,9 +255,8 @@ impl<'a> Query<'a> {
   }
 
   pub fn insert_candle(&mut self, candle: &Candle) -> Result<()> {
-    con()
-      .execute(
-        "
+    con().execute(
+      "
   INSERT INTO candles (
     symbol,
     interval,
@@ -267,21 +270,20 @@ impl<'a> Query<'a> {
     dead,
     source
   ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
-        &[
-          &self.symbol,
-          &self.interval,
-          &(candle.open_time as i64),
-          &(candle.close_time as i64),
-          &candle.open,
-          &candle.high,
-          &candle.low,
-          &candle.close,
-          &candle.volume,
-          &candle.dead,
-          &"binance",
-        ],
-      )
-      .ok();
+      &[
+        &self.symbol,
+        &self.interval,
+        &(candle.open_time as i64),
+        &(candle.close_time as i64),
+        &candle.open,
+        &candle.high,
+        &candle.low,
+        &candle.close,
+        &candle.volume,
+        &candle.dead,
+        &"binance",
+      ],
+    )?;
 
     Ok(())
   }

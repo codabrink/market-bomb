@@ -10,7 +10,7 @@ pub use crate::{
   api::*,
   config::Config,
   core::*,
-  database::{self, con, Order::*, Query, QueryOpt::*},
+  database::{self, con, test, Order::*, Query, QueryOpt::*},
   *,
 };
 pub use ahash::{AHashMap, AHashSet};
@@ -34,6 +34,10 @@ lazy_static! {
 
 macro_rules! log {
   ($($arg:tt)*) => {
-    crate::terminal::log(format!($($arg)*));
+    if cfg!(test) {
+      println!($($arg)*);
+    } else {
+      crate::terminal::log(format!($($arg)*));
+    }
   };
 }

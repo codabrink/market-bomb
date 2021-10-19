@@ -87,9 +87,7 @@ impl<'f> Frame<'f> {
     })
   }
 
-  pub fn pretty_time(&self) -> String {
-    self.ms.to_human()
-  }
+  pub fn pretty_time(&self) -> String { self.ms.to_human() }
 
   fn result(&mut self) -> Result<f32> {
     let step = self.interval.ms();
@@ -203,9 +201,7 @@ fn compile_strong_points(
 }
 
 impl<'f> From<&mut Frame<'f>> for String {
-  fn from(frame: &mut Frame<'f>) -> Self {
-    String::from(&*frame)
-  }
+  fn from(frame: &mut Frame<'f>) -> Self { String::from(&*frame) }
 }
 
 impl<'f> From<&Frame<'f>> for String {
@@ -269,7 +265,7 @@ mod tests {
 
   #[test]
   fn functional_frames() -> Result<()> {
-    // test_prep();
+    test();
 
     let mut query = Query::new("BTCUSDT", "15m");
     let step = query.step();
@@ -280,7 +276,9 @@ mod tests {
     query.set_all(vec![Start(start), End(end)]);
     let missing = query.missing_candles()?;
 
+    assert_eq!(query.num_candles(), 100);
     assert_eq!(missing.len(), 1);
+    assert_eq!(missing.num_candles(step), 100);
     assert_eq!(missing[0].start, start);
     assert_eq!(missing[0].end, end);
 

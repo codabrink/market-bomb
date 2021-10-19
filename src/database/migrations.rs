@@ -22,7 +22,6 @@ CREATE TABLE candles (
   low           REAL NOT NULL,
   close         REAL NOT NULL,
   volume        REAL NOT NULL,
-  indicators    TEXT NOT NULL,
   bottom_domain INT DEFAULT 0 NOT NULL,
   top_domain    INT DEFAULT 0 NOT NULL,
   fuzzy_domain  BOOLEAN DEFAULT TRUE,
