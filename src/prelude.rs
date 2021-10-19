@@ -10,7 +10,7 @@ pub use crate::{
   api::*,
   config::Config,
   core::*,
-  database::{self, con, test, Order::*, Query, QueryOpt::*},
+  database::{self, con, setup_test, Order::*, Query, QueryOpt::*},
   *,
 };
 pub use ahash::{AHashMap, AHashSet};

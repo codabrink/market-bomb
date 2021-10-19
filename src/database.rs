@@ -23,7 +23,7 @@ lazy_static! {
   pub static ref DATABASE: RwLock<String> = RwLock::new("trader".into());
 }
 
-pub fn test() {
+pub fn setup_test() {
   *DATABASE.write().unwrap() = String::from("trader_test");
   let _ = con().batch_execute("DELETE FROM candles;");
 }

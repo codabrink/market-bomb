@@ -50,7 +50,7 @@ impl Api {
       }
     }
 
-    query.set_range(range.clone());
+    query.set_range(range);
 
     // Insert remaining missing candles as dead
     let mut dead_count = 0;
@@ -69,8 +69,6 @@ impl Api {
     if dead_count > 0 {
       log!("Inserted {} dead candles.", dead_count);
     }
-
-    query.set_range(range);
 
     Ok(query.query_candles()?)
   }
