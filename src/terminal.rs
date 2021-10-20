@@ -3,6 +3,7 @@ mod command;
 use crate::database;
 use crate::prelude::*;
 use anyhow::Result;
+use regex::Regex;
 use std::{collections::VecDeque, io, thread, time::Duration};
 use termion::{
   event::Key,
@@ -10,6 +11,7 @@ use termion::{
   raw::IntoRawMode,
   screen::AlternateScreen,
 };
+use tui::style::Modifier;
 use tui::{
   backend::TermionBackend,
   layout::{Constraint, Direction, Layout},
@@ -30,6 +32,11 @@ lazy_static! {
 
 pub fn log(msg: impl AsRef<str>) {
   let _ = LOG.0.send(msg.as_ref().to_string());
+}
+
+lazy_static! {
+  static ref RE_FORMAT: Regex =
+    Regex::new(r"^(/(?P<fmt>[a-zA-Z]*)\s)?(?P<text>.+)$").unwrap();
 }
 
 pub struct Terminal {
@@ -128,15 +135,37 @@ impl Terminal {
           .take(chunks[2].height as usize)
           .fold(VecDeque::new(), |mut vec, (i, l)| {
             let i = i.to_string();
+            let caps = RE_FORMAT.captures(l).unwrap();
+            let fmt = caps.name("fmt").map_or("", |m| m.as_str());
+            let text =
+              caps.name("text").map_or("MISSING MESSAGE", |m| m.as_str());
+
             // inneficient
-            let new_items: Vec<ListItem> = l
+            let new_items: Vec<ListItem> = text
               .chars()
               .collect::<Vec<char>>()
               .chunks(chunks[2].width as usize - (i.len() + 2))
               .map(|c| c.iter().collect::<String>())
               .collect::<Vec<String>>()
-              .iter()
-              .map(|l| ListItem::new(format!("{}| {}", i, l)))
+              .into_iter()
+              .map(|l| {
+                let mut style = Style::default();
+                for fmt in fmt.chars() {
+                  match fmt {
+                    'g' => style = style.fg(Color::Green),
+                    'b' => style = style.fg(Color::Blue),
+                    'y' => style = style.fg(Color::Yellow),
+                    'r' => style = style.fg(Color::Red),
+                    'B' => style = style.add_modifier(Modifier::BOLD),
+                    _ => {}
+                  }
+                }
+                let spans = Spans::from(vec![
+                  Span::raw(format!("{}| ", i)),
+                  Span::styled(l, style),
+                ]);
+                ListItem::new(spans)
+              })
               .collect();
             vec.extend(new_items);
             vec

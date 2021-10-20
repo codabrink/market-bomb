@@ -267,7 +267,7 @@ mod tests {
   fn functional_frames() -> Result<()> {
     setup_test();
 
-    let mut query = Query::new("BTCUSDT", "15m");
+    let mut query = Query::default();
     let step = query.step();
 
     let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).ms().round(step);

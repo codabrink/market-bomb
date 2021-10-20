@@ -78,6 +78,7 @@ impl<'a> Query<'a> {
       options: AHashSet::new(),
     }
   }
+  pub fn default() -> Self { Self::new("BTCUSDT", "15m") }
 
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     self.options.get(opt)

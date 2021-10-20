@@ -84,11 +84,22 @@ impl FromRawCandle<Candle> for Candle {
 
 #[cfg(test)]
 mod tests {
+  use crate::prelude::*;
+
   #[test]
-  fn test_api_is_inclusive() -> anyhow::Result<()> {
-    // TODO: implement
-    // assert!(false);
-    // b.fetch_candles();
+  fn test_api_is_inclusive() -> Result<()> {
+    setup_test();
+
+    let api = Binance::new();
+    let mut query = Query::default();
+    let start = "4h".ago();
+    let end = "3h".ago();
+    query.set_all(vec![Start(start), End(end)]);
+
+    assert_eq!(query.missing_candles()?[0].num_candles("15m"), 4);
+
+    let candles = api.fetch_candles(&mut query)?;
+    assert_eq!(candles.len(), 4);
 
     Ok(())
   }
