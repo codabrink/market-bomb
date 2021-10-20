@@ -41,7 +41,7 @@ impl ApiTrait for Binance {
     let r = query.range().unwrap();
     let r = r.start..(r.end - 1);
     for start in (r.start..r.end).step_by(candle_limit_ms) {
-      fetch(r.start, (start + candle_limit_ms as i64).min(r.end))?;
+      fetch(start, (start + candle_limit_ms as i64).min(r.end))?;
     }
 
     Ok(candles)

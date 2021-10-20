@@ -10,6 +10,10 @@ pub fn parse_command(cmd: String) -> Result<()> {
 
   match parts[0] {
     // download interval start(..end)
+    "delete" if parts[1] == "candles" => {
+      con().batch_execute("delete from candles;")?;
+      log!("Deleted all candles.");
+    }
     "download" if parts.len() > 2 => {
       log!("Command recognized.");
       let range_parts: Vec<&str> = parts[2].split("..").collect();

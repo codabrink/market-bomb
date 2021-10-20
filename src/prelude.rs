@@ -18,10 +18,10 @@ pub use anyhow::{bail, Result};
 pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 pub use range::*;
 pub use serde::{Deserialize, Serialize};
-pub use std::fs;
+pub use std::{fs, sync::atomic::Ordering::Relaxed};
 pub use time::*;
 
-pub use postgres::{types::ToSql, Client, NoTls};
+pub use postgres::{error::DbError, types::ToSql, Client, NoTls};
 pub use r2d2::{Pool, PooledConnection};
 pub use r2d2_postgres::PostgresConnectionManager;
 pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;

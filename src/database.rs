@@ -1,14 +1,18 @@
 use crate::prelude::*;
 use anyhow::Result;
+use postgres::error::SqlState;
 use std::{
   hash::{Hash, Hasher},
   mem::discriminant,
   ops::Range,
   process::Command,
-  sync::RwLock,
+  sync::{atomic::AtomicUsize, RwLock},
 };
 
 mod migrations;
+
+pub static UNIQUE_VIOLATIONS: AtomicUsize = AtomicUsize::new(0);
+pub static CANDLES: AtomicUsize = AtomicUsize::new(0);
 
 lazy_static! {
   pub static ref POOL: DbPool = init_pool();
@@ -21,6 +25,16 @@ pub enum Order {
 
 lazy_static! {
   pub static ref DATABASE: RwLock<String> = RwLock::new("trader".into());
+}
+
+pub fn candle_counting_thread() {
+  thread::spawn(move || loop {
+    if let Ok(r) = con().query("select count(*) from candles;", &[]) {
+      let v = r[0].get::<usize, i64>(0);
+      CANDLES.store(v as usize, Relaxed);
+    }
+    thread::sleep(Duration::from_secs(2));
+  });
 }
 
 pub fn setup_test() {
@@ -160,7 +174,7 @@ impl<'a> Query<'a> {
       query.push_str(format!(" LIMIT {}", limit).as_str());
     }
 
-    log!("{}", &query);
+    // log!("{}", &query);
 
     (query, params)
   }
@@ -190,9 +204,9 @@ impl<'a> Query<'a> {
 
     let rows = con().query(
               "
-  SELECT c.open_time AS missing_open_times
-  FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
-  WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5);",
+SELECT c.open_time AS missing_open_times
+FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
+WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5);",
               &[&start, &end, &step, &self.symbol, &self.interval],
           )?;
 
@@ -240,11 +254,10 @@ impl<'a> Query<'a> {
     con().batch_execute(
       format!(
         "
-  DELETE FROM candles WHERE
-  open_time IN (SELECT open_time FROM import_candles)
-  AND symbol = '{symbol}' AND interval = '{interval}';
-  INSERT INTO candles SELECT * FROM import_candles;
-  ",
+DELETE FROM candles WHERE
+open_time IN (SELECT open_time FROM import_candles)
+AND symbol = '{symbol}' AND interval = '{interval}';
+INSERT INTO candles SELECT * FROM import_candles;",
         symbol = self.symbol,
         interval = self.interval
       )
@@ -255,21 +268,21 @@ impl<'a> Query<'a> {
   }
 
   pub fn insert_candle(&mut self, candle: &Candle) -> Result<()> {
-    con().execute(
+    let result = con().execute(
       "
-  INSERT INTO candles (
-    symbol,
-    interval,
-    open_time,
-    close_time,
-    open,
-    high,
-    low,
-    close,
-    volume,
-    dead,
-    source
-  ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+INSERT INTO candles (
+  symbol,
+  interval,
+  open_time,
+  close_time,
+  open,
+  high,
+  low,
+  close,
+  volume,
+  dead,
+  source
+) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
       &[
         &self.symbol,
         &self.interval,
@@ -283,7 +296,16 @@ impl<'a> Query<'a> {
         &candle.dead,
         &"binance",
       ],
-    )?;
+    );
+
+    if let Err(e) = result {
+      match e.code() {
+        Some(&SqlState::UNIQUE_VIOLATION) => {
+          UNIQUE_VIOLATIONS.fetch_add(1, Relaxed);
+        }
+        _ => Err(e)?,
+      }
+    }
 
     Ok(())
   }
@@ -356,30 +378,30 @@ pub fn calculate_domain(con: &mut DbCon, interval: &str) -> Result<()> {
   con.execute(
     "
 UPDATE candles AS a
-  SET top_domain = (
-    COALESCE(ABS(
-      (SELECT b.open_time FROM candles AS b
-      WHERE b.high >= a.high AND
-      b.open_time != a.open_time AND
-      b.symbol = a.symbol AND
-      b.interval = $2
-      ORDER BY ABS(a.open_time - b.open_time)
-      LIMIT 1) - a.open_time
-    ) / $1, 0)
-  ),
-  bottom_domain = (
-    COALESCE(ABS(
-      (SELECT b.open_time FROM candles as b
-      WHERE b.low <= a.low AND
-      b.open_time != a.open_time AND
-      b.symbol = a.symbol AND
-      b.interval = $2
-      ORDER BY ABS(a.open_time - b.open_time)
-      LIMIT 1) - a.open_time
-    ) / $1, 0)
-  )
-  WHERE a.interval = $2
-  AND (a.top_domain = 0 OR a.bottom_domain = 0);",
+SET top_domain = (
+  COALESCE(ABS(
+    (SELECT b.open_time FROM candles AS b
+    WHERE b.high >= a.high AND
+    b.open_time != a.open_time AND
+    b.symbol = a.symbol AND
+    b.interval = $2
+    ORDER BY ABS(a.open_time - b.open_time)
+    LIMIT 1) - a.open_time
+  ) / $1, 0)
+),
+bottom_domain = (
+  COALESCE(ABS(
+    (SELECT b.open_time FROM candles as b
+    WHERE b.low <= a.low AND
+    b.open_time != a.open_time AND
+    b.symbol = a.symbol AND
+    b.interval = $2
+    ORDER BY ABS(a.open_time - b.open_time)
+    LIMIT 1) - a.open_time
+  ) / $1, 0)
+)
+WHERE a.interval = $2
+AND (a.top_domain = 0 OR a.bottom_domain = 0);",
     &[&(step as i64), &interval],
   )?;
 

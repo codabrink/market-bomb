@@ -16,9 +16,10 @@ mod web_server;
 use anyhow::Result;
 use indicatif::ProgressBar;
 use prelude::*;
-use std::fs;
+use std::{thread, time::Duration};
 
 fn main() {
+  database::candle_counting_thread();
   terminal::Terminal::new();
 }
 

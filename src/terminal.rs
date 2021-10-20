@@ -1,5 +1,6 @@
 mod command;
 
+use crate::database;
 use crate::prelude::*;
 use anyhow::Result;
 use std::{collections::VecDeque, io, thread, time::Duration};
@@ -12,7 +13,8 @@ use termion::{
 use tui::{
   backend::TermionBackend,
   layout::{Constraint, Direction, Layout},
-  style::Style,
+  style::{Color, Style},
+  text::{Span, Spans},
   widgets::{Block, Borders, List, ListItem, Paragraph},
   Terminal as TuiTerminal,
 };
@@ -81,29 +83,54 @@ impl Terminal {
         let chunks = Layout::default()
           .direction(Direction::Vertical)
           // .margin(2)
-          .constraints([Constraint::Length(3), Constraint::Min(1)].as_ref())
+          .constraints(
+            [
+              Constraint::Length(1),
+              Constraint::Length(3),
+              Constraint::Min(1),
+            ]
+            .as_ref(),
+          )
           .split(f.size());
+
+        let unique_violations = database::UNIQUE_VIOLATIONS.load(Relaxed);
+        let candle_count = database::CANDLES.load(Relaxed);
+        let stats = Spans::from(vec![
+          Span::raw(" uniq err: "),
+          Span::styled(
+            unique_violations.to_string(),
+            Style::default().fg(Color::Yellow),
+          ),
+          Span::raw(" candles: "),
+          Span::styled(
+            candle_count.to_string(),
+            Style::default().fg(Color::Green),
+          ),
+        ]);
+        f.render_widget(Paragraph::new(stats), chunks[0]);
 
         let input = Paragraph::new(self.input.as_ref())
           .style(Style::default())
           .block(Block::default().borders(Borders::ALL).title("Input"));
         f.set_cursor(
-          chunks[0].x + self.input.len() as u16 + 1,
-          chunks[0].y + 1,
+          chunks[1].x + self.input.len() as u16 + 1,
+          chunks[1].y + 1,
         );
-        f.render_widget(input, chunks[0]);
+        f.render_widget(input, chunks[1]);
 
         let mut logs: Vec<ListItem> = logs
           .iter()
+          .rev()
           .enumerate()
-          .take(chunks[1].height as usize)
+          .rev()
+          .take(chunks[2].height as usize)
           .fold(vec![], |mut vec, (i, l)| {
             let i = i.to_string();
             // inneficient
             let new_items: Vec<ListItem> = l
               .chars()
               .collect::<Vec<char>>()
-              .chunks(chunks[1].width as usize - (i.len() + 2))
+              .chunks(chunks[2].width as usize - (i.len() + 2))
               .map(|c| c.iter().collect::<String>())
               .collect::<Vec<String>>()
               .iter()
@@ -112,12 +139,12 @@ impl Terminal {
             vec.extend(new_items);
             vec
           });
-        logs.truncate(chunks[1].height as usize);
+        logs.truncate(chunks[2].height as usize);
 
         f.render_widget(
           List::new(logs)
             .block(Block::default().borders(Borders::TOP).title("Logs")),
-          chunks[1],
+          chunks[2],
         );
       })?;
 
