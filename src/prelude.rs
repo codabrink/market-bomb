@@ -18,6 +18,7 @@ pub use anyhow::{bail, Result};
 pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 pub use range::*;
 pub use serde::{Deserialize, Serialize};
+pub use serial_test::serial;
 pub use std::{fs, sync::atomic::Ordering::Relaxed};
 pub use time::*;
 

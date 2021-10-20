@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use anyhow::Result;
 use postgres::error::SqlState;
+
 use std::{
   hash::{Hash, Hasher},
   mem::discriminant,
@@ -197,7 +198,9 @@ impl<'a> Query<'a> {
   }
 
   pub fn missing_candles_ungrouped(&mut self) -> Result<Vec<i64>> {
-    let step = self.interval.ms();
+    assert!(!self.is_empty());
+
+    let step = self.step();
     let start = match self.get(&Start(0)) {
       Some(Start(s)) => *s,
       _ => bail!("Need a beginning of the range"),
@@ -211,7 +214,7 @@ impl<'a> Query<'a> {
               "
 SELECT c.open_time AS missing_open_times
 FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
-WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5);",
+WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5)",
               &[&start, &end, &step, &self.symbol, &self.interval],
           )?;
 
@@ -311,9 +314,62 @@ INSERT INTO candles (
     if let Err(e) = result {
       match e.code() {
         Some(&SqlState::UNIQUE_VIOLATION) => {
+          // maybe we'll want to do a replace in the future
+          // but for now, let's just (mostly) ignore it.
           UNIQUE_VIOLATIONS.fetch_add(1, Relaxed);
         }
         _ => Err(e)?,
+      }
+    }
+
+    Ok(())
+  }
+
+  fn known_siblings(
+    &mut self,
+    open_time: i64,
+  ) -> Result<(Option<Candle>, Option<Candle>)> {
+    let r = con().query(
+      format!(
+        "
+(SELECT {cols} FROM candles WHERE open_time < {ot} ORDER BY open_time DESC LIMIT 1)
+UNION ALL
+(SELECT {cols} FROM candles WHERE open_time > {ot} ORDER BY open_time ASC LIMIT 1)
+",
+        cols = Candle::DB_COLUMNS,
+        ot = open_time
+      )
+      .as_str(),
+      &[],
+    )?;
+
+    Ok((r.get(0).map(Candle::from), r.get(1).map(Candle::from)))
+  }
+
+  pub fn linear_regression(&mut self) -> Result<()> {
+    let missing = self.missing_candles_ungrouped()?;
+    for open_time in missing {
+      if let (Some(left), Some(right)) = self.known_siblings(open_time)? {
+        let dl = (open_time - left.open_time) as f32;
+        let dr = (right.open_time - open_time) as f32;
+        let dt = dl + dr;
+
+        // get the fractions
+        let dl = dl / dt;
+        let dr = dl / dt;
+
+        let candle = Candle {
+          open: (left.open * dl + right.open * dr) / 2.,
+          high: (left.high * dl + right.high * dr) / 2.,
+          low: (left.low * dl + right.low * dr) / 2.,
+          close: (left.close * dl + right.close * dr) / 2.,
+          volume: (left.volume * dl + right.volume * dr) / 2.,
+          open_time,
+          close_time: open_time + self.step() - 1,
+          ..Default::default()
+        };
+
+        self.insert_candle(&candle)?;
       }
     }
 
@@ -487,10 +543,12 @@ mod tests {
   }
 
   #[test]
+  #[serial]
   fn linear_regression() -> Result<()> {
-    let symbol = "BTCUSDT";
-    let interval = "15m";
-    let step = interval.ms();
+    setup_test();
+
+    let mut query = Query::default();
+    let step = query.step();
 
     let c1 = Candle {
       open: 300.,
@@ -513,6 +571,35 @@ mod tests {
       close_time: "1h".ago().round(step) + step,
       ..Default::default()
     };
+
+    query.insert_candle(&c1)?;
+    query.insert_candle(&c2)?;
+
+    // red herrings
+    query.insert_candle(&Candle {
+      open_time: "1d".ago().round(step),
+      ..Default::default()
+    })?;
+    query.insert_candle(&Candle {
+      open_time: "15m".ago().round(step),
+      ..Default::default()
+    })?;
+
+    // ensure that known_siblings works first
+    match query.known_siblings("2h".ago())? {
+      (Some(left), Some(right)) => {
+        assert_eq!(left.open_time, c1.open_time);
+        assert_eq!(right.open_time, c2.open_time);
+      }
+      _ => bail!("known_siblings is not returning two candles as expected."),
+    }
+
+    query.set_all(vec![Start(c1.open_time), End(c2.open_time)]);
+    query.linear_regression()?;
+    let count = query.count_candles()?;
+    // 4h      3h      2h      1h
+    // | | | | | | | | | | | | |
+    assert_eq!(count, 13);
 
     Ok(())
   }

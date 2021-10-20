@@ -264,6 +264,7 @@ mod tests {
   use chrono::*;
 
   #[test]
+  #[serial]
   fn functional_frames() -> Result<()> {
     setup_test();
 

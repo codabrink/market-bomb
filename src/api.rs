@@ -27,12 +27,15 @@ impl Api {
         break;
       }
 
-      let missing_count: Vec<usize> =
-        missing.iter().map(|m| m.num_candles(step)).collect();
+      assert!("15m".ms() == step);
+
       log!(
         "Fetching {} candles. ({:?})",
-        missing_count.iter().sum::<usize>(),
-        missing_count
+        missing.num_candles("15m"),
+        missing
+          .iter()
+          .map(|m| m.num_candles("15m"))
+          .collect::<Vec<usize>>()
       );
 
       for range in missing {

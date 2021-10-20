@@ -35,3 +35,22 @@ impl MarketBombRange<Range<i64>> for Range<i64> {
     result
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use chrono::{TimeZone, Utc};
+
+  use crate::prelude::*;
+
+  #[test]
+  fn range() -> Result<()> {
+    let noon = Utc.ymd(2020, 1, 1).and_hms(12, 0, 0).ms();
+    let step = "15m".ms();
+    let hour = "1h".ms();
+
+    // there are four fifteen minute candles in an hour
+    assert_eq!((noon..(noon + hour)).num_candles(step), 4);
+
+    Ok(())
+  }
+}

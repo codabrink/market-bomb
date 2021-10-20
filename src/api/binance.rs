@@ -87,6 +87,7 @@ mod tests {
   use crate::prelude::*;
 
   #[test]
+  #[serial]
   fn test_api_is_inclusive() -> Result<()> {
     setup_test();
 
@@ -99,6 +100,9 @@ mod tests {
     assert_eq!(query.missing_candles()?[0].num_candles("15m"), 4);
 
     let candles = api.fetch_candles(&mut query)?;
+    for c in &candles {
+      log!("time: {}", c.open_time.to_human());
+    }
     assert_eq!(candles.len(), 4);
 
     Ok(())

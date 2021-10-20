@@ -34,3 +34,6 @@ anyhow = "1"
 tui = "0.16"
 termion = "1.5"
 ahash = { version = "0.7", features = ["serde"] }
+serial_test = "0.5"
+
+[dev-dependencies]
