@@ -13,6 +13,8 @@ mod migrations;
 
 pub static UNIQUE_VIOLATIONS: AtomicUsize = AtomicUsize::new(0);
 pub static CANDLES: AtomicUsize = AtomicUsize::new(0);
+pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;
+pub type DbCon = PooledConnection<PostgresConnectionManager<NoTls>>;
 
 lazy_static! {
   pub static ref POOL: DbPool = init_pool();
@@ -76,9 +78,11 @@ impl<'a> Query<'a> {
       options: AHashSet::new(),
     }
   }
+
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     self.options.get(opt)
   }
+
   pub fn set(&mut self, opt: QueryOpt) {
     // round time values to interval
     let opt = match opt {

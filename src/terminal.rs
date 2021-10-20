@@ -77,6 +77,7 @@ impl Terminal {
 
     let mut logs: VecDeque<String> = VecDeque::new();
     let mut cmd_index = 0;
+    let mut log_offset = 0;
 
     loop {
       terminal.draw(|f| {
@@ -118,13 +119,14 @@ impl Terminal {
         );
         f.render_widget(input, chunks[1]);
 
-        let mut logs: Vec<ListItem> = logs
+        let mut logs: VecDeque<ListItem> = logs
           .iter()
           .rev()
           .enumerate()
           .rev()
+          .skip(log_offset)
           .take(chunks[2].height as usize)
-          .fold(vec![], |mut vec, (i, l)| {
+          .fold(VecDeque::new(), |mut vec, (i, l)| {
             let i = i.to_string();
             // inneficient
             let new_items: Vec<ListItem> = l
@@ -139,6 +141,12 @@ impl Terminal {
             vec.extend(new_items);
             vec
           });
+        if log_offset > 0 {
+          logs.push_front(ListItem::new(format!(
+            "--- More ({}) ---",
+            log_offset
+          )));
+        }
         logs.truncate(chunks[2].height as usize);
 
         f.render_widget(
@@ -174,6 +182,14 @@ impl Terminal {
             if let Some(cmd) = cmd {
               self.input = cmd.clone();
             }
+          }
+          // up
+          Key::Ctrl('u') => {
+            log_offset = log_offset.saturating_sub(1);
+          }
+          // down
+          Key::Ctrl('d') => {
+            log_offset = log_offset.saturating_add(1).min(logs.len());
           }
           Key::Char('\n') => {
             let cmd = std::mem::replace(&mut self.input, String::new());

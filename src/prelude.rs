@@ -10,7 +10,7 @@ pub use crate::{
   api::*,
   config::Config,
   core::*,
-  database::{self, con, setup_test, Order::*, Query, QueryOpt::*},
+  database::{self, Order::*, QueryOpt::*, *},
   *,
 };
 pub use ahash::{AHashMap, AHashSet};
@@ -24,8 +24,6 @@ pub use time::*;
 pub use postgres::{error::DbError, types::ToSql, Client, NoTls};
 pub use r2d2::{Pool, PooledConnection};
 pub use r2d2_postgres::PostgresConnectionManager;
-pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;
-pub type DbCon = PooledConnection<PostgresConnectionManager<NoTls>>;
 
 lazy_static! {
   pub static ref API: RwLock<Api> = RwLock::new(Binance::new());
