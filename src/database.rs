@@ -355,15 +355,15 @@ UNION ALL
         let dt = dl + dr;
 
         // get the fractions
-        let dl = dl / dt;
-        let dr = dl / dt;
+        let dl = 1. - (dl / dt);
+        let dr = 1. - (dr / dt);
 
         let candle = Candle {
-          open: (left.open * dl + right.open * dr) / 2.,
-          high: (left.high * dl + right.high * dr) / 2.,
-          low: (left.low * dl + right.low * dr) / 2.,
-          close: (left.close * dl + right.close * dr) / 2.,
-          volume: (left.volume * dl + right.volume * dr) / 2.,
+          open: left.open * dl + right.open * dr,
+          high: left.high * dl + right.high * dr,
+          low: left.low * dl + right.low * dr,
+          close: left.close * dl + right.close * dr,
+          volume: left.volume * dl + right.volume * dr,
           open_time,
           close_time: open_time + self.step() - 1,
           ..Default::default()
@@ -556,8 +556,8 @@ mod tests {
       low: 100.,
       close: 200.,
       volume: 100.,
-      open_time: "4h".ago().round(step),
-      close_time: "4h".ago().round(step) + step,
+      open_time: "3h".ago().round(step),
+      close_time: "3h".ago().round(step) + step,
       ..Default::default()
     };
 
@@ -597,9 +597,31 @@ mod tests {
     query.set_all(vec![Start(c1.open_time), End(c2.open_time)]);
     query.linear_regression()?;
     let count = query.count_candles()?;
-    // 4h      3h      2h      1h
-    // | | | | | | | | | | | | |
-    assert_eq!(count, 13);
+
+    // 3h      2h      1h
+    // | | | | | | | | |
+    assert_eq!(count, 9);
+
+    query.set_all(vec![Start(c1.open_time + step), End(c1.open_time + step)]);
+    let candles = query.query_candles()?;
+    assert_eq!(candles.len(), 1);
+
+    let one_eigth = 1. / 8.;
+    let seven_eighths = 7. / 8.;
+
+    assert_eq!(
+      candles[0].open,
+      c1.open * seven_eighths + c2.open * one_eigth
+    );
+    assert_eq!(
+      candles[0].high,
+      c1.high * seven_eighths + c2.high * one_eigth
+    );
+    assert_eq!(
+      candles[0].close,
+      c1.close * seven_eighths + c2.close * one_eigth
+    );
+    assert_eq!(candles[0].low, c1.low * seven_eighths + c2.low * one_eigth);
 
     Ok(())
   }
