@@ -196,7 +196,7 @@ impl<'a> Query<'a> {
     Ok(rows[0].get::<usize, i64>(0) as usize)
   }
 
-  pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
+  pub fn missing_candles_ungrouped(&mut self) -> Result<Vec<i64>> {
     let step = self.interval.ms();
     let start = match self.get(&Start(0)) {
       Some(Start(s)) => *s,
@@ -215,7 +215,12 @@ WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol
               &[&start, &end, &step, &self.symbol, &self.interval],
           )?;
 
-    let missing: Vec<i64> = rows.iter().map(|i| i.get(0)).collect();
+    Ok(rows.iter().map(|i| i.get(0)).collect())
+  }
+
+  pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
+    let missing = self.missing_candles_ungrouped()?;
+    let step = self.interval.ms();
 
     let mut range_start = 0;
     let mut result = Vec::<Range<i64>>::new();
@@ -477,6 +482,37 @@ mod tests {
     query.set_all(vec![Start("1h".ago()), End("0m".ago())]);
 
     assert!(!query.is_empty());
+
+    Ok(())
+  }
+
+  #[test]
+  fn linear_regression() -> Result<()> {
+    let symbol = "BTCUSDT";
+    let interval = "15m";
+    let step = interval.ms();
+
+    let c1 = Candle {
+      open: 300.,
+      high: 400.,
+      low: 100.,
+      close: 200.,
+      volume: 100.,
+      open_time: "4h".ago().round(step),
+      close_time: "4h".ago().round(step) + step,
+      ..Default::default()
+    };
+
+    let c2 = Candle {
+      open: 75.,
+      high: 100.,
+      low: 25.,
+      close: 50.,
+      volume: 50.,
+      open_time: "1h".ago().round(step),
+      close_time: "1h".ago().round(step) + step,
+      ..Default::default()
+    };
 
     Ok(())
   }
