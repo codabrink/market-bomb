@@ -54,24 +54,7 @@ impl Api {
     }
 
     query.set_range(range);
-
-    // Insert remaining missing candles as dead
-    let mut dead_count = 0;
-    for range in query.missing_candles()? {
-      let mut open_time = range.start;
-      while open_time <= range.end {
-        // log!("Inserting dead candle at {}..", open_time);
-        dead_count += 1;
-        let candle = Candle::dead(open_time);
-        query
-          .insert_candle(&candle)
-          .expect("Could not insert candle.");
-        open_time += step as i64;
-      }
-    }
-    if dead_count > 0 {
-      log!("Inserted {} dead candles.", dead_count);
-    }
+    query.linear_regression()?;
 
     Ok(query.query_candles()?)
   }

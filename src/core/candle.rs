@@ -15,23 +15,16 @@ pub struct Candle {
   pub close_time: i64,
   pub top_domain: i32,
   pub bottom_domain: i32,
-  pub dead: bool,
+  pub derived: bool,
   pub fuzzy_domain: bool,
   pub index: usize,
 }
 
 impl Candle {
-  pub const DB_COLUMNS: &'static str = "id, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain";
+  pub const DB_COLUMNS: &'static str = "id, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, derived";
 
   pub fn contains_ms(&self, ms: i64) -> bool {
     self.open_time <= ms && self.close_time >= ms
-  }
-  pub fn dead(open_time: i64) -> Self {
-    Self {
-      open_time,
-      dead: true,
-      ..Default::default()
-    }
   }
 
   pub fn wick_ratio(&self) -> f32 {
@@ -65,7 +58,7 @@ impl Candle {
       self.bottom_domain,
       self.top_domain,
       self.fuzzy_domain,
-      self.dead,
+      self.derived,
     )
   }
 }
@@ -84,6 +77,7 @@ impl From<&Row> for Candle {
       bottom_domain: row.get(8),
       top_domain: row.get(9),
       fuzzy_domain: row.get(10),
+      derived: row.get(11),
       ..Default::default()
     }
   }

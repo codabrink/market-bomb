@@ -25,9 +25,9 @@ CREATE TABLE candles (
   bottom_domain INT DEFAULT 0 NOT NULL,
   top_domain    INT DEFAULT 0 NOT NULL,
   fuzzy_domain  BOOLEAN DEFAULT TRUE,
-  dead          BOOLEAN DEFAULT FALSE,
+  derived       BOOLEAN DEFAULT FALSE,
   source        TEXT NOT NULL,
-  primary key   (open_time, interval, symbol, dead, source)
+  primary key   (open_time, interval, symbol, source)
 );
 CREATE TABLE import_candles AS TABLE candles WITH NO DATA;",
   )?;

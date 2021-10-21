@@ -155,7 +155,7 @@ impl<'a> Query<'a> {
     };
 
     let mut query = format!(
-      r#"SELECT {} FROM candles WHERE symbol = '{}' AND interval = '{}' AND dead = false"#,
+      r#"SELECT {} FROM candles WHERE symbol = '{}' AND interval = '{}'"#,
       columns, self.symbol, self.interval
     );
     let params = vec![];
@@ -245,7 +245,7 @@ WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol
     use std::path::Path;
 
     fs::create_dir_all("/tmp/pg_copy")?;
-    let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, dead";
+    let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, derived";
     let mut _out = String::from(format!("{}\n", header));
     _out.push_str(out.as_str());
 
@@ -293,7 +293,7 @@ INSERT INTO candles (
   low,
   close,
   volume,
-  dead,
+  derived,
   source
 ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
       &[
@@ -306,7 +306,7 @@ INSERT INTO candles (
         &candle.low,
         &candle.close,
         &candle.volume,
-        &candle.dead,
+        &candle.derived,
         &"binance",
       ],
     );
