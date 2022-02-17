@@ -13,9 +13,9 @@ pub use crate::{
   database::{self, Order::*, QueryOpt::*, *},
   *,
 };
-pub use ahash::{AHashMap, AHashSet};
 pub use anyhow::{bail, Result};
 pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
+pub use hashbrown::{HashMap, HashSet};
 pub use range::*;
 pub use serde::{Deserialize, Serialize};
 pub use serial_test::serial;

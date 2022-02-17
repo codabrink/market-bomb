@@ -1,15 +1,11 @@
 [package]
-authors = ["Dakota Brink <779390+codabrink@users.noreply.github.com>"]
-edition = "2018"
+authors = ["Dakota Brink <git@kota.is>"]
+edition = "2021"
 name = "market_bomb"
 version = "0.1.0"
 resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-
-# [profile.dev]
-# opt-level = 3
 
 
 [dependencies]
@@ -31,9 +27,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 anyhow = "1"
-tui = "0.16"
+tui = "0.17"
 termion = "1.5"
-ahash = { version = "0.7", features = ["serde"] }
+hashbrown = "0.12"
 serial_test = "0.5"
-
-[dev-dependencies]

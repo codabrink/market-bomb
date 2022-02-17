@@ -28,7 +28,7 @@ pub fn parse_command(cmd: String) -> Result<()> {
         _ => now(),
       };
       let mut query = Query::new("BTCUSDT", parts[1]);
-      query.set_all(vec![Start(start), End(end)]);
+      query.set_all(&[Start(start), End(end)]);
       if start > end {
         bail!("Start of range must be before end.");
       }

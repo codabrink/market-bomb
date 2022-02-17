@@ -16,6 +16,8 @@ pub struct Config {
   pub history_num_candles: i64,
   pub strong_points: StrongPointsConfig,
   pub export: ExportConfig,
+  pub history_start: usize,
+  pub history_end: usize,
 }
 #[derive(Serialize, Deserialize)]
 pub struct StrongPointsConfig {
@@ -43,6 +45,8 @@ impl ::std::default::Default for Config {
         predict_candles_forward: 32,
       },
       strong_points: StrongPointsConfig { min_domain: 4 },
+      history_start: 1460, // 365 * 4
+      history_end: 365,
     }
   }
 }
@@ -75,6 +79,6 @@ fn default() {
     ..Default::default()
   };
 
-  fs::write(CONF_FILE, serde_json::to_string(&config).unwrap())
+  fs::write(CONF_FILE, serde_json::to_string_pretty(&config).unwrap())
     .expect("Could not write default config.");
 }

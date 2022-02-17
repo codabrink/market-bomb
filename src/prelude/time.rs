@@ -12,13 +12,27 @@ lazy_static! {
 
 pub trait AsMs {
   fn ms(&self) -> i64;
+  fn ago(&self) -> i64;
 }
 
 impl AsMs for i64 {
   fn ms(&self) -> i64 {
     *self
   }
+  fn ago(&self) -> Self {
+    *self
+  }
 }
+
+impl AsMs for DateTime<Utc> {
+  fn ms(&self) -> i64 {
+    self.timestamp_millis() as i64
+  }
+  fn ago(&self) -> i64 {
+    now() - self.ms()
+  }
+}
+
 impl AsMs for &str {
   fn ms(&self) -> i64 {
     let caps = RE_INTERVAL.captures(self).unwrap();
@@ -39,17 +53,6 @@ impl AsMs for &str {
       _ => milliseconds,
     }
   }
-}
-impl AsMs for String {
-  fn ms(&self) -> i64 {
-    self.as_str().ms()
-  }
-}
-
-pub trait AgoToMs {
-  fn ago(&self) -> i64;
-}
-impl AgoToMs for &str {
   fn ago(&self) -> i64 {
     let input = self.as_ref();
     let caps = RE_INTERVAL.captures(input).unwrap();
@@ -87,15 +90,17 @@ impl AgoToMs for &str {
     };
   }
 }
+impl AsMs for String {
+  fn ms(&self) -> i64 {
+    self.as_str().ms()
+  }
+  fn ago(&self) -> i64 {
+    self.as_str().ago()
+  }
+}
 
 pub fn now() -> i64 {
   Utc::now().timestamp_millis() as i64
-}
-
-impl AsMs for DateTime<Utc> {
-  fn ms(&self) -> i64 {
-    self.timestamp_millis() as i64
-  }
 }
 
 pub trait MsExtra {

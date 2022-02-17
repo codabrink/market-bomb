@@ -26,7 +26,7 @@ impl<'f> Frame<'f> {
 
     // First grab the detail candles (custom query)
     // Then grab strong points that are before (custom query)
-    query.set_all(vec![
+    query.set_all(&[
       Start(ms - step * CONFIG.export.detail_view_len as i64),
       End(ms),
       Order(DESC),
@@ -38,7 +38,7 @@ impl<'f> Frame<'f> {
     assert_eq!(detail_candles.last().unwrap().open_time, ms);
 
     query.clear();
-    query.set_all(vec![
+    query.set_all(&[
       BottomDomain(min_domain),
       TopDomain(min_domain),
       Limit(CONFIG.export.strong_point_length),
@@ -87,7 +87,9 @@ impl<'f> Frame<'f> {
     })
   }
 
-  pub fn pretty_time(&self) -> String { self.ms.to_human() }
+  pub fn pretty_time(&self) -> String {
+    self.ms.to_human()
+  }
 
   fn result(&mut self) -> Result<f32> {
     let step = self.interval.ms();
@@ -201,7 +203,9 @@ fn compile_strong_points(
 }
 
 impl<'f> From<&mut Frame<'f>> for String {
-  fn from(frame: &mut Frame<'f>) -> Self { String::from(&*frame) }
+  fn from(frame: &mut Frame<'f>) -> Self {
+    String::from(&*frame)
+  }
 }
 
 impl<'f> From<&Frame<'f>> for String {
@@ -274,7 +278,7 @@ mod tests {
     let start = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0).ms().round(step);
     let end = start + step * 100;
 
-    query.set_all(vec![Start(start), End(end)]);
+    query.set_all(&[Start(start), End(end)]);
     let missing = query.missing_candles()?;
 
     assert_eq!(query.num_candles(), 100);

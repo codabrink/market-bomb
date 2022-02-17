@@ -19,13 +19,25 @@ use prelude::*;
 use std::{thread, time::Duration};
 
 fn main() {
+  Config::load();
   database::candle_counting_thread();
   terminal::Terminal::new();
 }
 
+fn build_history() {
+  let config = Config::load();
+  let mut q = Query::default();
+  q.set_all(&[
+    Start(format!("{}d", config.history_start).ago()),
+    End(format!("{}d", config.history_end).ago()),
+  ]);
+
+  for step in ["1d"] {}
+}
+
 fn train(symbol: &str, interval: &str) -> Result<()> {
   // Collect all candles
-  let mut con = con();
+  let con = con();
 
   let folder_path = format!(
     "builder/csv/train/{symbol}/{interval}/{candles_forward}",

@@ -40,7 +40,7 @@ impl Api {
 
       for range in missing {
         // split the range up so we don't get rate-limited
-        query.set_all(vec![Start(range.start), End(range.end)]);
+        query.set_all(&[Start(range.start), End(range.end)]);
         log!("missing: {:?}", range);
         let candles = match self {
           Self::Binance(b) => b.fetch_candles(&query),

@@ -49,7 +49,7 @@ pub fn setup_test() {
 pub struct Query<'a> {
   pub symbol: &'a str,
   pub interval: &'a str,
-  options: AHashSet<QueryOpt>,
+  options: HashSet<QueryOpt>,
 }
 
 #[derive(Clone, Debug, Eq)]
@@ -68,7 +68,9 @@ impl PartialEq for QueryOpt {
   }
 }
 impl Hash for QueryOpt {
-  fn hash<H: Hasher>(&self, state: &mut H) { discriminant(self).hash(state); }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    discriminant(self).hash(state);
+  }
 }
 
 impl<'a> Query<'a> {
@@ -76,10 +78,12 @@ impl<'a> Query<'a> {
     Self {
       symbol,
       interval,
-      options: AHashSet::new(),
+      options: HashSet::new(),
     }
   }
-  pub fn default() -> Self { Self::new("BTCUSDT", "15m") }
+  pub fn default() -> Self {
+    Self::new("BTCUSDT", "15m")
+  }
 
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     self.options.get(opt)
@@ -96,13 +100,15 @@ impl<'a> Query<'a> {
     self.options.replace(opt);
   }
 
-  pub fn set_all(&mut self, opt: Vec<QueryOpt>) {
+  pub fn set_all(&mut self, opt: &[QueryOpt]) {
     for opt in opt {
-      self.set(opt);
+      self.set(opt.clone());
     }
   }
 
-  pub fn is_empty(&self) -> bool { self.num_candles() == 0 }
+  pub fn is_empty(&self) -> bool {
+    self.num_candles() == 0
+  }
 
   pub fn num_candles(&self) -> usize {
     match (self.get(&Start(0)), self.get(&End(0))) {
@@ -113,12 +119,16 @@ impl<'a> Query<'a> {
     }
   }
 
-  pub fn clear(&mut self) { self.options.clear(); }
+  pub fn clear(&mut self) {
+    self.options.clear();
+  }
 
-  pub fn remove(&'a mut self, opt: &QueryOpt) { self.options.remove(&opt); }
+  pub fn remove(&'a mut self, opt: &QueryOpt) {
+    self.options.remove(&opt);
+  }
 
   pub fn set_range(&mut self, range: Range<i64>) {
-    self.set_all(vec![Start(range.start), End(range.end)]);
+    self.set_all(&[Start(range.start), End(range.end)]);
   }
   pub fn range(&self) -> Option<Range<i64>> {
     match (self.get(&Start(0)), self.get(&End(0))) {
@@ -141,7 +151,9 @@ impl<'a> Query<'a> {
     None
   }
 
-  pub fn step(&self) -> i64 { self.interval.ms() }
+  pub fn step(&self) -> i64 {
+    self.interval.ms()
+  }
 
   fn serialize(
     &self,
@@ -377,7 +389,9 @@ UNION ALL
   }
 }
 
-pub fn db() -> String { DATABASE.read().unwrap().clone() }
+pub fn db() -> String {
+  DATABASE.read().unwrap().clone()
+}
 
 fn init_pool() -> DbPool {
   if !database_exists() {
@@ -397,7 +411,9 @@ fn init_pool() -> DbPool {
   );
   Pool::new(manager).unwrap()
 }
-pub fn con() -> DbCon { POOL.clone().get().unwrap() }
+pub fn con() -> DbCon {
+  POOL.clone().get().unwrap()
+}
 
 pub fn database_exists() -> bool {
   let a = Command::new("psql")
@@ -410,7 +426,9 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
+pub fn reset() {
+  con().batch_execute("DELETE FROM candles;").unwrap();
+}
 pub fn create_db() -> Result<()> {
   log!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?
@@ -535,7 +553,7 @@ mod tests {
   #[test]
   fn query_works() -> Result<()> {
     let mut query = Query::new("BTCUSDT", "15m");
-    query.set_all(vec![Start("1h".ago()), End("0m".ago())]);
+    query.set_all(&[Start("1h".ago()), End("0m".ago())]);
 
     assert!(!query.is_empty());
 
@@ -594,7 +612,7 @@ mod tests {
       _ => bail!("known_siblings is not returning two candles as expected."),
     }
 
-    query.set_all(vec![Start(c1.open_time), End(c2.open_time)]);
+    query.set_all(&[Start(c1.open_time), End(c2.open_time)]);
     query.linear_regression()?;
     let count = query.count_candles()?;
 
@@ -602,7 +620,7 @@ mod tests {
     // | | | | | | | | |
     assert_eq!(count, 9);
 
-    query.set_all(vec![Start(c1.open_time + step), End(c1.open_time + step)]);
+    query.set_all(&[Start(c1.open_time + step), End(c1.open_time + step)]);
     let candles = query.query_candles()?;
     assert_eq!(candles.len(), 1);
 

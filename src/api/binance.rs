@@ -6,7 +6,9 @@ const CANDLE_LIMIT: i64 = 500;
 
 pub struct Binance {}
 impl ApiTrait for Binance {
-  fn new() -> Api { Api::Binance(Self {}) }
+  fn new() -> Api {
+    Api::Binance(Self {})
+  }
   fn fetch_candles(&self, query: &Query) -> Result<Vec<Candle>> {
     let step = query.step();
 
@@ -30,8 +32,8 @@ impl ApiTrait for Binance {
 
       candles.extend(
         raw_candles
-          .iter()
-          .map(Candle::from_raw)
+          .into_iter()
+          .map(Candle::from)
           .collect::<Vec<Candle>>(),
       );
 
@@ -64,19 +66,16 @@ pub struct RawCandle(
   String,
 );
 
-trait FromRawCandle<T> {
-  fn from_raw(raw: &RawCandle) -> T;
-}
-impl FromRawCandle<Candle> for Candle {
-  fn from_raw(raw: &RawCandle) -> Self {
+impl From<RawCandle> for Candle {
+  fn from(rc: RawCandle) -> Candle {
     Candle {
-      open: raw.1.parse().unwrap(),
-      high: raw.2.parse().unwrap(),
-      low: raw.3.parse().unwrap(),
-      close: raw.4.parse().unwrap(),
-      volume: raw.5.parse().unwrap(),
-      open_time: raw.0,
-      close_time: raw.6,
+      open: rc.1.parse().unwrap(),
+      high: rc.2.parse().unwrap(),
+      low: rc.3.parse().unwrap(),
+      close: rc.4.parse().unwrap(),
+      volume: rc.5.parse().unwrap(),
+      open_time: rc.0,
+      close_time: rc.6,
       ..Default::default()
     }
   }
@@ -95,7 +94,7 @@ mod tests {
     let mut query = Query::default();
     let start = "4h".ago();
     let end = "3h".ago();
-    query.set_all(vec![Start(start), End(end)]);
+    query.set_all(&[Start(start), End(end)]);
 
     assert_eq!(query.missing_candles()?[0].num_candles("15m"), 4);
 

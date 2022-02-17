@@ -13,7 +13,7 @@ use termion::{
 };
 use tui::style::Modifier;
 use tui::{
-  backend::TermionBackend,
+  backend::CrosstermBackend,
   layout::{Constraint, Direction, Layout},
   style::{Color, Style},
   text::{Span, Spans},
@@ -79,7 +79,7 @@ impl Terminal {
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
-    let backend = TermionBackend::new(stdout);
+    let backend = CrosstermBackend::new(stdout);
     let mut terminal = TuiTerminal::new(backend)?;
 
     let mut logs: VecDeque<String> = VecDeque::new();
