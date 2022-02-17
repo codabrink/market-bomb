@@ -38,8 +38,12 @@ impl Api {
         }?;
 
         log!("Api returned {} candles.", candles.len());
+        for candle in candles {
+          query.insert_candle(&candle)?;
+        }
       }
 
+      tries += 1;
       missing = query.missing_candles()?;
     }
 

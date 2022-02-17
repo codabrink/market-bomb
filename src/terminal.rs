@@ -102,6 +102,7 @@ impl Terminal {
           .split(f.size());
 
         let unique_violations = database::UNIQUE_VIOLATIONS.load(Relaxed);
+        let derived_count = database::DERIVED_CANDLES.load(Relaxed);
         let candle_count = database::CANDLES.load(Relaxed);
         let stats = Spans::from(vec![
           Span::raw(" uniq err: "),
@@ -113,6 +114,11 @@ impl Terminal {
           Span::styled(
             candle_count.to_string(),
             Style::default().fg(Color::Green),
+          ),
+          Span::raw(" derived: "),
+          Span::styled(
+            derived_count.to_string(),
+            Style::default().fg(Color::Yellow),
           ),
         ]);
         f.render_widget(Paragraph::new(stats), chunks[0]);

@@ -13,6 +13,7 @@ use std::{
 mod migrations;
 
 pub static UNIQUE_VIOLATIONS: AtomicUsize = AtomicUsize::new(0);
+pub static DERIVED_CANDLES: AtomicUsize = AtomicUsize::new(0);
 pub static CANDLES: AtomicUsize = AtomicUsize::new(0);
 pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;
 pub type DbCon = PooledConnection<PostgresConnectionManager<NoTls>>;
@@ -402,6 +403,7 @@ UNION ALL
         };
 
         self.insert_candle(&candle)?;
+        DERIVED_CANDLES.fetch_add(1, Relaxed);
       }
     }
 

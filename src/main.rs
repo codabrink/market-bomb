@@ -19,7 +19,10 @@ use prelude::*;
 use std::{thread, time::Duration};
 
 fn main() {
-  Config::load();
+  std::thread::spawn(|| {
+    build_history();
+  });
+
   database::candle_counting_thread();
   terminal::Terminal::new();
 }
@@ -27,14 +30,12 @@ fn main() {
 fn build_history() {
   let config = Config::load();
 
-  for step in ["1d"] {
-    let mut q = Query::default();
+  for interval in ["1d", "4h", "1h"] {
+    let mut q = Query::new("BTCUSDT", interval);
     q.set_all(&[
       Start(format!("{}d", config.history_start).ago()),
       End(format!("{}d", config.history_end).ago()),
     ]);
-
-    q.set_interval(step);
     API.fetch_candles(&mut q);
   }
 }
