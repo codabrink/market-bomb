@@ -19,43 +19,45 @@ impl Api {
     let step = query.step();
     let range = query.range().expect("Query needs a start and an end.");
 
-    for _ in 0..2 {
-      let missing = query.missing_candles()?;
+    let mut tries = 0;
+    let mut missing = query.missing_candles()?;
 
-      if missing.is_empty() {
-        log!("no missing");
-        break;
-      }
-
-      assert!("15m".ms() == step);
-
+    while !missing.is_empty() && tries < 3 {
       log!(
-        "Fetching {} candles. ({:?})",
-        missing.num_candles("15m"),
-        missing
-          .iter()
-          .map(|m| m.num_candles("15m"))
-          .collect::<Vec<usize>>()
+        "Fetching {} candles.",
+        missing.num_candles(query.interval())
       );
 
       for range in missing {
+        let mut subquery = query.clone();
         // split the range up so we don't get rate-limited
-        query.set_all(&[Start(range.start), End(range.end)]);
+        subquery.set_all(&[Start(range.start), End(range.end)]);
         log!("missing: {:?}", range);
         let candles = match self {
-          Self::Binance(b) => b.fetch_candles(&query),
+          Self::Binance(b) => b.fetch_candles(&subquery),
         }?;
 
         log!("Api returned {} candles.", candles.len());
-        for candle in candles {
-          query.insert_candle(&candle)?;
-        }
       }
+
+      missing = query.missing_candles()?;
     }
 
-    query.set_range(range);
     query.linear_regression()?;
-
-    Ok(query.query_candles()?)
+    query.query_candles()
   }
 }
+
+// fn linear_regression(q: &Query, candles: &mut [Option<Candle>]) -> Result<()> {
+//   let start = q.start().expect("Query needs a start");
+//   let step = q.step();
+//   if let Some(i) = candles[1..].iter().position(|c| c.is_none()) {
+//     let left = &candles[i - 1].expect("Left candle is none");
+//     if let Some(right) = candles[i..].iter().position(|c| c.is_some()) {
+//       let right = &candles[right].expect("Right candle is none");
+//       let c = Candle::linear_regression(start + step * i as i64, left, right)?;
+//       candles[i] = Some(c);
+//     }
+//   }
+//   Ok(())
+// }

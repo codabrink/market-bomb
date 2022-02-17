@@ -26,13 +26,17 @@ fn main() {
 
 fn build_history() {
   let config = Config::load();
-  let mut q = Query::default();
-  q.set_all(&[
-    Start(format!("{}d", config.history_start).ago()),
-    End(format!("{}d", config.history_end).ago()),
-  ]);
 
-  for step in ["1d"] {}
+  for step in ["1d"] {
+    let mut q = Query::default();
+    q.set_all(&[
+      Start(format!("{}d", config.history_start).ago()),
+      End(format!("{}d", config.history_end).ago()),
+    ]);
+
+    q.set_interval(step);
+    API.fetch_candles(&mut q);
+  }
 }
 
 fn train(symbol: &str, interval: &str) -> Result<()> {

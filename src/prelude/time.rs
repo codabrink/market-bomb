@@ -23,13 +23,21 @@ impl AsMs for i64 {
     *self
   }
 }
-
 impl AsMs for DateTime<Utc> {
   fn ms(&self) -> i64 {
     self.timestamp_millis() as i64
   }
   fn ago(&self) -> i64 {
     now() - self.ms()
+  }
+}
+
+impl AsMs for String {
+  fn ms(&self) -> i64 {
+    self.as_str().ms()
+  }
+  fn ago(&self) -> i64 {
+    self.as_str().ago()
   }
 }
 
@@ -88,14 +96,6 @@ impl AsMs for &str {
         return now;
       }
     };
-  }
-}
-impl AsMs for String {
-  fn ms(&self) -> i64 {
-    self.as_str().ms()
-  }
-  fn ago(&self) -> i64 {
-    self.as_str().ago()
   }
 }
 

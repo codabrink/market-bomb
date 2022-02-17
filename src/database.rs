@@ -46,9 +46,10 @@ pub fn setup_test() {
 }
 
 #[derive(Clone)]
-pub struct Query<'a> {
-  pub symbol: &'a str,
-  pub interval: &'a str,
+pub struct Query {
+  symbol: String,
+  interval: String,
+  step: i64,
   options: HashSet<QueryOpt>,
 }
 
@@ -73,11 +74,12 @@ impl Hash for QueryOpt {
   }
 }
 
-impl<'a> Query<'a> {
-  pub fn new(symbol: &'a str, interval: &'a str) -> Self {
+impl Query {
+  pub fn new(symbol: &str, interval: &str) -> Self {
     Self {
-      symbol,
-      interval,
+      symbol: symbol.to_owned(),
+      interval: interval.to_owned(),
+      step: interval.ms(),
       options: HashSet::new(),
     }
   }
@@ -88,16 +90,29 @@ impl<'a> Query<'a> {
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     self.options.get(opt)
   }
+  pub fn symbol(&self) -> &str {
+    &self.symbol
+  }
+  pub fn interval(&self) -> &str {
+    &self.interval
+  }
 
   pub fn set(&mut self, opt: QueryOpt) {
     // round time values to interval
     let opt = match opt {
-      Start(start) => Start(start.round(self.interval)),
-      End(end) => End(end.round(self.interval)),
+      Start(start) => Start(start.round(self.interval.as_str())),
+      End(end) => End(end.round(self.interval.as_str())),
       v => v,
     };
 
     self.options.replace(opt);
+  }
+
+  pub fn candle_index(&self, candle: &Candle) -> usize {
+    match self.start() {
+      Some(start) => ((candle.open_time - start) / self.step) as usize,
+      _ => 0,
+    }
   }
 
   pub fn set_all(&mut self, opt: &[QueryOpt]) {
@@ -123,8 +138,13 @@ impl<'a> Query<'a> {
     self.options.clear();
   }
 
-  pub fn remove(&'a mut self, opt: &QueryOpt) {
+  pub fn remove(&mut self, opt: &QueryOpt) {
     self.options.remove(&opt);
+  }
+
+  pub fn set_interval(&mut self, interval: &str) {
+    self.interval = interval.to_owned();
+    self.step = self.interval.ms();
   }
 
   pub fn set_range(&mut self, range: Range<i64>) {
@@ -209,7 +229,7 @@ impl<'a> Query<'a> {
     Ok(rows[0].get::<usize, i64>(0) as usize)
   }
 
-  pub fn missing_candles_ungrouped(&mut self) -> Result<Vec<i64>> {
+  pub fn missing_candles_ungrouped(&self) -> Result<Vec<i64>> {
     assert!(!self.is_empty());
 
     let step = self.step();
@@ -233,7 +253,7 @@ WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol
     Ok(rows.iter().map(|i| i.get(0)).collect())
   }
 
-  pub fn missing_candles(&mut self) -> Result<Vec<Range<i64>>> {
+  pub fn missing_candles(&self) -> Result<Vec<Range<i64>>> {
     let missing = self.missing_candles_ungrouped()?;
     let step = self.interval.ms();
 

@@ -17,7 +17,7 @@ impl MovingAverage {
     let mut query = Query::new(&self.symbol, &self.interval);
     query.set_all(&[Start(ms - step * self.len as i64), End(ms)]);
 
-    let candles = API.read().unwrap().fetch_candles(&mut query)?;
+    let candles = API.fetch_candles(&mut query)?;
 
     let mut val = 0.;
     for c in &candles {

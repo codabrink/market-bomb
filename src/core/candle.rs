@@ -27,6 +27,33 @@ impl Candle {
     self.open_time <= ms && self.close_time >= ms
   }
 
+  pub fn linear_regression(
+    open_time: i64,
+    left: &Candle,
+    right: &Candle,
+  ) -> Result<Self> {
+    let dl = (open_time - left.open_time) as f32;
+    let dr = (right.open_time - open_time) as f32;
+    let dt = dl + dr;
+
+    // get the fractions
+    let dl = 1. - (dl / dt);
+    let dr = 1. - (dr / dt);
+
+    let candle = Candle {
+      open: left.open * dl + right.open * dr,
+      high: left.high * dl + right.high * dr,
+      low: left.low * dl + right.low * dr,
+      close: left.close * dl + right.close * dr,
+      volume: left.volume * dl + right.volume * dr,
+      open_time,
+      close_time: open_time + (left.close_time - left.open_time),
+      ..Default::default()
+    };
+
+    Ok(candle)
+  }
+
   pub fn wick_ratio(&self) -> f32 {
     let bhigh = self.open.max(self.close);
     let blow = self.open.min(self.close);
@@ -40,8 +67,12 @@ impl Candle {
 
     top_wick / wick - bottom_wick / wick
   }
-  pub fn open_y(&self) -> f32 { self.open }
-  pub fn open_x(&self) -> i64 { self.open_time }
+  pub fn open_y(&self) -> f32 {
+    self.open
+  }
+  pub fn open_x(&self) -> i64 {
+    self.open_time
+  }
   pub fn to_string(&self, symbol: &str, interval: &str) -> String {
     format!(
       "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
@@ -93,8 +124,8 @@ impl From<(usize, &Row)> for Candle {
 pub fn build_domain(query: &mut Query) -> Result<()> {
   log!(
     "Calculating domain for {}, {}...",
-    query.symbol,
-    query.interval
+    query.symbol(),
+    query.interval()
   );
   let mut candles = query.query_candles()?;
   // let pb = data::progress_bar(candles.len() as i64);
@@ -103,11 +134,11 @@ pub fn build_domain(query: &mut Query) -> Result<()> {
   log!("Saving..");
 
   for i in 0..candles.len() {
-    set_domain(&mut candles, i, query.symbol, query.interval);
+    set_domain(&mut candles, i, query.symbol(), query.interval());
   }
   let candle_rows: Vec<String> = candles
     .iter()
-    .map(|c| c.to_string(query.symbol, query.interval))
+    .map(|c| c.to_string(query.symbol(), query.interval()))
     .collect();
   query.copy_in_candles(candle_rows.join("")).unwrap();
 

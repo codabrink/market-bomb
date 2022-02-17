@@ -3,8 +3,6 @@
 mod range;
 mod time;
 
-use std::sync::RwLock;
-
 // pub use crate::api;
 pub use crate::{
   api::*,
@@ -27,8 +25,8 @@ pub use r2d2::{Pool, PooledConnection};
 pub use r2d2_postgres::PostgresConnectionManager;
 
 lazy_static! {
-  pub static ref API: RwLock<Api> = RwLock::new(Binance::new());
   pub static ref CONFIG: Config = Config::load();
+  pub static ref API: Api = Binance::new();
 }
 
 macro_rules! log {
