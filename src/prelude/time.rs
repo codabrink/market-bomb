@@ -4,7 +4,7 @@ use chrono::{prelude::*, Utc};
 use regex::Regex;
 use std::time::{Duration, UNIX_EPOCH};
 
-const DATETIME_FORMAT: &str = "%m-%d-%y %H:%M:%S";
+const DATETIME_FORMAT: &str = "%m/%d/%y %H:%M";
 lazy_static! {
   pub static ref RE_INTERVAL: Regex =
     Regex::new(r"(?P<n>\d+)(?P<unit>[a-zA-Z])").unwrap();

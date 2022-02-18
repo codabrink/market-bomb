@@ -192,14 +192,14 @@ impl Query {
       columns, self.symbol, self.interval
     );
     let params = vec![];
-    let mut limit = CONFIG.query_limit;
+    let mut limit = None;
     let mut order = ASC;
 
     for o in &self.options {
       match o {
         Start(start) => query.push_str(&format!(" AND open_time >= {}", start)),
         End(end) => query.push_str(&format!(" AND open_time <= {}", end)),
-        Limit(l) => limit = *l,
+        Limit(l) => limit = Some(*l),
         Order(o) => order = o.clone(),
         _ => {}
       };
@@ -210,7 +210,9 @@ impl Query {
         ASC => " ORDER BY open_time ASC",
         DESC => " ORDER BY open_time DESC",
       });
-      query.push_str(format!(" LIMIT {}", limit).as_str());
+      if let Some(limit) = limit {
+        query.push_str(format!(" LIMIT {}", limit).as_str());
+      }
     }
 
     // log!("{}", &query);
@@ -218,7 +220,7 @@ impl Query {
     (query, params)
   }
 
-  pub fn query_candles(&mut self) -> Result<Vec<Candle>> {
+  pub fn query_candles(&self) -> Result<Vec<Candle>> {
     let (query, params) = self.serialize(None);
     let rows = con().query(query.as_str(), &params.to_params())?;
     Ok(rows.iter().enumerate().map(Candle::from).collect())

@@ -38,6 +38,7 @@ fn build_history() {
     ]);
     API.fetch_candles(&mut q);
   }
+  MovingAverage::calculate_ema("BTCUSDT", "4h", 200);
 }
 
 fn train(symbol: &str, interval: &str) -> Result<()> {
