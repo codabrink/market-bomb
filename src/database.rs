@@ -28,6 +28,10 @@ pub enum Order {
   ASC,
   DESC,
 }
+enum RecordType {
+  Candles,
+  MovingAverage,
+}
 
 fn db() -> String {
   #[cfg(test)]
@@ -216,7 +220,7 @@ impl Query {
     Ok(rows[0].get::<usize, i64>(0) as usize)
   }
 
-  pub fn missing_candles_ungrouped(&self) -> Result<Vec<i64>> {
+  fn missing_ungrouped(&self, record_type: RecordType) -> Result<Vec<i64>> {
     assert!(!self.is_empty());
 
     let step = self.step();
@@ -229,17 +233,24 @@ impl Query {
       _ => bail!("Need and end of the range"),
     };
 
+    let table = match record_type {
+      RecordType::Candles => "candles",
+      RecordType::MovingAverage => "moving_averages",
+    };
+
     let rows = con().query(
-              "
+              &format!("
 SELECT c.open_time
 FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
-WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5)",
+WHERE NOT EXISTS (SELECT 1 FROM {table} where open_time = c.open_time AND symbol = $4 AND interval = $5)", table = table),
               &[&start, &end, &step, &self.symbol, &self.interval],
           )?;
 
-    println!("{} rows", rows.len());
-
     Ok(rows.iter().map(|i| i.get(0)).collect())
+  }
+
+  pub fn missing_candles_ungrouped(&self) -> Result<Vec<i64>> {
+    self.missing_ungrouped(RecordType::Candles)
   }
 
   pub fn missing_candles(&self) -> Result<Vec<Range<i64>>> {

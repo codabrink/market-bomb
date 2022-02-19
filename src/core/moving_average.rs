@@ -70,11 +70,6 @@ impl MovingAverage {
       });
     }
 
-    // log!(
-    // "Saving MA from {} to {}",
-    // result[0].ms.to_human(),
-    // result.last().unwrap().ms.to_human()
-    // );
     for ma in &result {
       ma.save()?;
     }
@@ -165,7 +160,6 @@ mod tests {
 
     MovingAverage::calculate_ema(symbol, interval, 10)?;
     let ma = MovingAverage::query(symbol, interval, 10, true, None)?;
-
     assert_eq!(ma.len(), 182);
 
     Ok(())
