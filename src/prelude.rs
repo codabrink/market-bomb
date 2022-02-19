@@ -17,7 +17,10 @@ pub use hashbrown::{HashMap, HashSet};
 pub use range::*;
 pub use serde::{Deserialize, Serialize};
 pub use serial_test::serial;
-pub use std::{fs, sync::atomic::Ordering::Relaxed};
+pub use std::{
+  fs,
+  sync::atomic::{AtomicUsize, Ordering::Relaxed},
+};
 pub use time::*;
 
 pub use postgres::{error::DbError, types::ToSql, Client, NoTls};

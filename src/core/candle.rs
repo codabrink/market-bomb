@@ -96,7 +96,7 @@ impl Candle {
 
 impl From<&Row> for Candle {
   fn from(row: &Row) -> Self {
-    Candle {
+    Self {
       id: row.get(0),
       open_time: row.get(1),
       open: row.get(2),

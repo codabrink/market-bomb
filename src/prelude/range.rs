@@ -1,5 +1,5 @@
 use super::*;
-use std::ops::Range;
+pub use std::ops::Range;
 
 pub trait MarketBombVecRange {
   fn num_candles(&self, ms: impl AsMs) -> usize;

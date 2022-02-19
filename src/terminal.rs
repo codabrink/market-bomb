@@ -102,6 +102,8 @@ impl Terminal {
           .split(f.size());
 
         let unique_violations = database::UNIQUE_VIOLATIONS.load(Relaxed);
+        let ma_unique_violations =
+          moving_average::UNIQUE_VIOLATIONS.load(Relaxed);
         let derived_count = database::DERIVED_CANDLES.load(Relaxed);
         let candle_count = database::CANDLES.load(Relaxed);
         let stats = Spans::from(vec![
@@ -118,6 +120,11 @@ impl Terminal {
           Span::raw(" derived: "),
           Span::styled(
             derived_count.to_string(),
+            Style::default().fg(Color::Yellow),
+          ),
+          Span::raw(" ma uniq err: "),
+          Span::styled(
+            ma_unique_violations.to_string(),
             Style::default().fg(Color::Yellow),
           ),
         ]);

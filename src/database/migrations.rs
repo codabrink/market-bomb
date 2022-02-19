@@ -43,9 +43,9 @@ CREATE TABLE moving_averages (
   interval     VARCHAR(3) NOT NULL,
   len          INT NOT NULL,
   symbol       VARCHAR(10) NOT NULL,
-  exponential  BOOLEAN NOT NULL,
+  exp          BOOLEAN NOT NULL,
   val          REAL NOT NULL,
-  primary key  (ms, interval, len, symbol, exponential)
+  primary key  (ms, interval, len, symbol, exp)
 )",
   )?;
   Ok(())

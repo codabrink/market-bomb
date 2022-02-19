@@ -10,6 +10,7 @@ mod config;
 mod core;
 pub mod database;
 mod frame;
+mod strategy;
 mod terminal;
 mod web_server;
 
@@ -29,15 +30,23 @@ fn main() {
 
 fn build_history() {
   let config = Config::load();
+  let mut q = Query::new("BTCUSDT", "1d");
 
   for interval in ["1d", "4h", "1h"] {
-    let mut q = Query::new("BTCUSDT", interval);
+    q.set_interval(interval);
     q.set_all(&[
       Start(format!("{}d", config.history_start).ago()),
       End(format!("{}d", config.history_end).ago()),
     ]);
     API.fetch_candles(&mut q);
+
+    strategy::check_things();
   }
+
+  q.set_interval("15m");
+  q.set_all(&[Start("1y".ago()), End(now())]);
+  API.fetch_candles(&mut q);
+
   MovingAverage::calculate_ema("BTCUSDT", "4h", 200);
 }
 
