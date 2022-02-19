@@ -106,11 +106,16 @@ pub fn now() -> i64 {
 pub trait MsExtra {
   fn round(&self, step: impl AsMs) -> i64;
   fn to_human(&self) -> String;
+  fn to_datetime(&self) -> DateTime<Utc>;
 }
 impl MsExtra for i64 {
   fn round(&self, step: impl AsMs) -> i64 {
     let step = step.ms();
     self - self % step
+  }
+  fn to_datetime(&self) -> DateTime<Utc> {
+    let d = UNIX_EPOCH + Duration::from_millis(*self as u64);
+    DateTime::<Utc>::from(d)
   }
   fn to_human(&self) -> String {
     let d = UNIX_EPOCH + Duration::from_millis(*self as u64);
@@ -120,6 +125,10 @@ impl MsExtra for i64 {
 }
 
 mod prelude_time_tests {
+  use crate::prelude::*;
+  use chrono::Datelike;
+  // use chrono::TimeZone;
+  use chrono::Utc;
 
   #[test]
   fn ms_to_human_works() {
@@ -130,5 +139,15 @@ mod prelude_time_tests {
     let ms = now.timestamp_millis() as i64;
 
     assert_eq!(ms.to_human(), now.format(time::DATETIME_FORMAT).to_string());
+  }
+
+  #[test]
+  fn ago_works() {
+    let now = Utc::now();
+    let one_y_ago = "1y".ago().to_datetime();
+
+    assert_eq!(now.year() - 1, one_y_ago.year());
+    assert_eq!(now.day(), one_y_ago.day());
+    assert_eq!(now.month(), one_y_ago.month());
   }
 }

@@ -1,5 +1,4 @@
 use postgres::error::SqlState;
-use tui::symbols::line::DOUBLE_CROSS;
 
 use crate::prelude::*;
 
@@ -23,11 +22,33 @@ impl MovingAverage {
     assert!(len < candles.len());
 
     let step = interval.ms();
+
     // ensure candles are one continguous chunk
-    assert_eq!(
-      candles[0].open_time + step * candles.len() as i64 - step,
-      candles.last().unwrap().open_time
-    );
+    // ==========================================
+    assert!(candles[0].open_time < candles.last().unwrap().open_time);
+    let mut incongruities = 0;
+
+    for i in 0..(candles.len() - 1) {
+      let expected = candles[i].open_time + step;
+      let result = candles[i + 1].open_time;
+
+      if expected != result {
+        incongruities += 1;
+        log!(
+          "Incongruity at index {} of {}. Expected {}, got {}.",
+          i,
+          candles.len(),
+          expected,
+          result
+        );
+
+        if let Some(_) = candles.iter().find(|c| c.open_time == expected) {
+          panic!("Candles are out of order");
+        }
+      }
+    }
+    assert_eq!(incongruities, 0);
+    // ==========================================
 
     let mut ma = candles[..len].iter().fold(0., |acc, c| acc + c.close) as f32
       / len as f32;
@@ -49,11 +70,11 @@ impl MovingAverage {
       });
     }
 
-    log!(
-      "Saving MA from {} to {}",
-      result[0].ms.to_human(),
-      result.last().unwrap().ms.to_human()
-    );
+    // log!(
+    // "Saving MA from {} to {}",
+    // result[0].ms.to_human(),
+    // result.last().unwrap().ms.to_human()
+    // );
     for ma in &result {
       ma.save()?;
     }
@@ -126,5 +147,27 @@ impl From<&postgres::Row> for MovingAverage {
       val: row.get(4),
       exp: row.get(5),
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::prelude::*;
+
+  #[test]
+  fn moving_averages_to_and_from_db() -> Result<()> {
+    let symbol = "BTCUSDT";
+    let interval = "15m";
+
+    let mut query = Query::new(symbol, interval);
+    query.set_all(&[Start("5d".ago()), End("3d".ago())]);
+    let _ = API.save_candles(&mut query)?;
+
+    MovingAverage::calculate_ema(symbol, interval, 10)?;
+    let ma = MovingAverage::query(symbol, interval, 10, true, None)?;
+
+    assert_eq!(ma.len(), 182);
+
+    Ok(())
   }
 }

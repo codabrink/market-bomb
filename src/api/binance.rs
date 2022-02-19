@@ -6,9 +6,7 @@ const CANDLE_LIMIT: i64 = 500;
 
 pub struct Binance {}
 impl ApiTrait for Binance {
-  fn new() -> Api {
-    Api::Binance(Self {})
-  }
+  fn new() -> Api { Api::Binance(Self {}) }
   fn fetch_candles(&self, query: &Query) -> Result<Vec<Candle>> {
     let step = query.step();
     let fetch_step = (CANDLE_LIMIT * step) as usize;
@@ -81,19 +79,15 @@ mod tests {
   use crate::prelude::*;
 
   #[test]
-  #[serial]
   fn test_api_is_inclusive() -> Result<()> {
-    setup_test();
-
     let api = Binance::new();
     let mut query = Query::default();
-    let start = "4h".ago();
-    let end = "3h".ago();
-    query.set_all(&[Start(start), End(end)]);
+
+    query.set_all(&[Start("4h".ago()), End("3h".ago())]);
 
     assert_eq!(query.missing_candles()?[0].num_candles("15m"), 4);
 
-    let candles = api.fetch_candles(&mut query)?;
+    let candles = api.save_candles(&mut query)?;
     for c in &candles {
       log!("time: {}", c.open_time.to_human());
     }

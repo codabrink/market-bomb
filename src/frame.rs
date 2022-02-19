@@ -87,9 +87,7 @@ impl<'f> Frame<'f> {
     })
   }
 
-  pub fn pretty_time(&self) -> String {
-    self.ms.to_human()
-  }
+  pub fn pretty_time(&self) -> String { self.ms.to_human() }
 
   fn result(&mut self) -> Result<f32> {
     let step = self.interval.ms();
@@ -203,9 +201,7 @@ fn compile_strong_points(
 }
 
 impl<'f> From<&mut Frame<'f>> for String {
-  fn from(frame: &mut Frame<'f>) -> Self {
-    String::from(&*frame)
-  }
+  fn from(frame: &mut Frame<'f>) -> Self { String::from(&*frame) }
 }
 
 impl<'f> From<&Frame<'f>> for String {
@@ -268,10 +264,7 @@ mod tests {
   use chrono::*;
 
   #[test]
-  #[serial]
   fn functional_frames() -> Result<()> {
-    setup_test();
-
     let mut query = Query::default();
     let step = query.step();
 
@@ -288,7 +281,7 @@ mod tests {
     assert_eq!(missing[0].end, end);
 
     let api = Binance::new();
-    let candles = api.fetch_candles(&mut query)?;
+    let candles = api.save_candles(&mut query)?;
 
     assert_eq!(candles.len(), (start..end).num_candles(step) as usize);
 

@@ -16,7 +16,6 @@ pub use crossbeam::channel::{bounded, unbounded, Receiver, Sender};
 pub use hashbrown::{HashMap, HashSet};
 pub use range::*;
 pub use serde::{Deserialize, Serialize};
-pub use serial_test::serial;
 pub use std::{
   fs,
   sync::atomic::{AtomicUsize, Ordering::Relaxed},

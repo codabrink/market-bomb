@@ -15,7 +15,7 @@ pub enum Api {
 }
 
 impl Api {
-  pub fn fetch_candles(&self, query: &mut Query) -> Result<Vec<Candle>> {
+  pub fn save_candles(&self, query: &mut Query) -> Result<Vec<Candle>> {
     let step = query.step();
     let range = query.range().expect("Query needs a start and an end.");
 

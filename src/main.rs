@@ -1,3 +1,5 @@
+#![feature(thread_id_value)]
+
 #[macro_use]
 extern crate lazy_static;
 extern crate env_logger;
@@ -38,14 +40,14 @@ fn build_history() {
       Start(format!("{}d", config.history_start).ago()),
       End(format!("{}d", config.history_end).ago()),
     ]);
-    API.fetch_candles(&mut q);
+    API.save_candles(&mut q);
 
     strategy::check_things();
   }
 
   q.set_interval("15m");
   q.set_all(&[Start("1y".ago()), End(now())]);
-  API.fetch_candles(&mut q);
+  API.save_candles(&mut q);
 
   MovingAverage::calculate_ema("BTCUSDT", "4h", 200);
 }

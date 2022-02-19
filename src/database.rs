@@ -15,11 +15,13 @@ mod migrations;
 pub static UNIQUE_VIOLATIONS: AtomicUsize = AtomicUsize::new(0);
 pub static DERIVED_CANDLES: AtomicUsize = AtomicUsize::new(0);
 pub static CANDLES: AtomicUsize = AtomicUsize::new(0);
-pub type DbPool = Pool<PostgresConnectionManager<NoTls>>;
+
+pub struct DbPool(Pool<PostgresConnectionManager<NoTls>>);
 pub type DbCon = PooledConnection<PostgresConnectionManager<NoTls>>;
 
 lazy_static! {
-  pub static ref POOL: DbPool = init_pool();
+  pub static ref POOL: RwLock<HashMap<u64, DbPool>> =
+    RwLock::new(HashMap::new());
 }
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Order {
@@ -27,8 +29,11 @@ pub enum Order {
   DESC,
 }
 
-lazy_static! {
-  pub static ref DATABASE: RwLock<String> = RwLock::new("trader".into());
+fn db() -> String {
+  #[cfg(test)]
+  return format!("trader_test_{}", thread_id());
+  #[cfg(not(test))]
+  return "trader".into();
 }
 
 pub fn candle_counting_thread() {
@@ -39,11 +44,6 @@ pub fn candle_counting_thread() {
     }
     thread::sleep(Duration::from_secs(2));
   });
-}
-
-pub fn setup_test() {
-  *DATABASE.write().unwrap() = String::from("trader_test");
-  let _ = con().batch_execute("DELETE FROM candles;");
 }
 
 #[derive(Clone)]
@@ -70,9 +70,7 @@ impl PartialEq for QueryOpt {
   }
 }
 impl Hash for QueryOpt {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    discriminant(self).hash(state);
-  }
+  fn hash<H: Hasher>(&self, state: &mut H) { discriminant(self).hash(state); }
 }
 
 impl Query {
@@ -84,19 +82,13 @@ impl Query {
       options: HashSet::new(),
     }
   }
-  pub fn default() -> Self {
-    Self::new("BTCUSDT", "15m")
-  }
+  pub fn default() -> Self { Self::new("BTCUSDT", "15m") }
 
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     self.options.get(opt)
   }
-  pub fn symbol(&self) -> &str {
-    &self.symbol
-  }
-  pub fn interval(&self) -> &str {
-    &self.interval
-  }
+  pub fn symbol(&self) -> &str { &self.symbol }
+  pub fn interval(&self) -> &str { &self.interval }
 
   pub fn set(&mut self, opt: QueryOpt) {
     // round time values to interval
@@ -122,9 +114,7 @@ impl Query {
     }
   }
 
-  pub fn is_empty(&self) -> bool {
-    self.num_candles() == 0
-  }
+  pub fn is_empty(&self) -> bool { self.num_candles() == 0 }
 
   pub fn num_candles(&self) -> usize {
     match (self.get(&Start(0)), self.get(&End(0))) {
@@ -135,13 +125,9 @@ impl Query {
     }
   }
 
-  pub fn clear(&mut self) {
-    self.options.clear();
-  }
+  pub fn clear(&mut self) { self.options.clear(); }
 
-  pub fn remove(&mut self, opt: &QueryOpt) {
-    self.options.remove(&opt);
-  }
+  pub fn remove(&mut self, opt: &QueryOpt) { self.options.remove(&opt); }
 
   pub fn set_interval(&mut self, interval: &str) {
     self.interval = interval.to_owned();
@@ -172,9 +158,7 @@ impl Query {
     None
   }
 
-  pub fn step(&self) -> i64 {
-    self.interval.ms()
-  }
+  pub fn step(&self) -> i64 { self.interval.ms() }
 
   fn serialize(
     &self,
@@ -247,11 +231,13 @@ impl Query {
 
     let rows = con().query(
               "
-SELECT c.open_time AS missing_open_times
+SELECT c.open_time
 FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
 WHERE NOT EXISTS (SELECT 1 FROM candles where open_time = c.open_time AND symbol = $4 AND interval = $5)",
               &[&start, &end, &step, &self.symbol, &self.interval],
           )?;
+
+    println!("{} rows", rows.len());
 
     Ok(rows.iter().map(|i| i.get(0)).collect())
   }
@@ -351,6 +337,7 @@ INSERT INTO candles (
         Some(&SqlState::UNIQUE_VIOLATION) => {
           // maybe we'll want to do a replace in the future
           // but for now, let's just (mostly) ignore it.
+          log!("Unique violation.");
           UNIQUE_VIOLATIONS.fetch_add(1, Relaxed);
         }
         _ => Err(e)?,
@@ -382,7 +369,13 @@ UNION ALL
   }
 
   pub fn linear_regression(&mut self) -> Result<()> {
+    let num_derived = DERIVED_CANDLES.load(Relaxed);
+
     let missing = self.missing_candles_ungrouped()?;
+    log!(
+      "Calculating linear regression for {} candles...",
+      missing.len()
+    );
     for open_time in missing {
       if let (Some(left), Some(right)) = self.known_siblings(open_time)? {
         let dl = (open_time - left.open_time) as f32;
@@ -408,18 +401,21 @@ UNION ALL
         DERIVED_CANDLES.fetch_add(1, Relaxed);
       }
     }
+    log!(
+      "Derived {} candles.",
+      DERIVED_CANDLES.load(Relaxed) - num_derived
+    );
 
     Ok(())
   }
 }
 
-pub fn db() -> String {
-  DATABASE.read().unwrap().clone()
-}
-
 fn init_pool() -> DbPool {
+  // test cleanup
+  #[cfg(test)]
+  let _ = drop_db();
+
   if !database_exists() {
-    log!("Database '{}' not found", db());
     if let Err(err) = create_db() {
       log!("Create db: {:?}", err);
     }
@@ -433,10 +429,23 @@ fn init_pool() -> DbPool {
       .unwrap(),
     NoTls,
   );
-  Pool::new(manager).unwrap()
+  DbPool(Pool::new(manager).unwrap())
 }
+
+pub fn thread_id() -> u64 {
+  std::primitive::u64::from(thread::current().id().as_u64())
+}
+
 pub fn con() -> DbCon {
-  POOL.clone().get().unwrap()
+  if let Some(pool) = POOL.read().unwrap().get(&thread_id()) {
+    return pool.0.get().unwrap();
+  }
+
+  let mut p = POOL.write().unwrap();
+  p.insert(thread_id(), init_pool());
+  drop(p);
+
+  return con();
 }
 
 pub fn database_exists() -> bool {
@@ -450,14 +459,19 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() {
-  con().batch_execute("DELETE FROM candles;").unwrap();
-}
+pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
 pub fn create_db() -> Result<()> {
+  #[cfg(not(test))]
   log!("Creating database...");
   Client::connect("host=127.0.0.1 user=postgres", NoTls)?
     .batch_execute(format!("CREATE DATABASE {};", db()).as_str())?;
+  #[cfg(not(test))]
   log!("Done");
+  Ok(())
+}
+pub fn drop_db() -> Result<()> {
+  Client::connect("host=127.0.0.1 user=postgres", NoTls)?
+    .batch_execute(format!("DROP DATABASE {};", db()).as_str())?;
   Ok(())
 }
 
@@ -585,10 +599,7 @@ mod tests {
   }
 
   #[test]
-  #[serial]
   fn linear_regression() -> Result<()> {
-    setup_test();
-
     let mut query = Query::default();
     let step = query.step();
 
