@@ -2,7 +2,10 @@ use chrono;
 use chrono::Datelike;
 use chrono::{prelude::*, Utc};
 use regex::Regex;
-use std::time::{Duration, UNIX_EPOCH};
+use std::{
+  ops::Sub,
+  time::{Duration, UNIX_EPOCH},
+};
 
 const DATETIME_FORMAT: &str = "%m/%d/%y %H:%M";
 lazy_static! {
@@ -16,29 +19,17 @@ pub trait AsMs {
 }
 
 impl AsMs for i64 {
-  fn ms(&self) -> i64 {
-    *self
-  }
-  fn ago(&self) -> Self {
-    *self
-  }
+  fn ms(&self) -> i64 { *self }
+  fn ago(&self) -> Self { *self }
 }
 impl AsMs for DateTime<Utc> {
-  fn ms(&self) -> i64 {
-    self.timestamp_millis() as i64
-  }
-  fn ago(&self) -> i64 {
-    now() - self.ms()
-  }
+  fn ms(&self) -> i64 { self.timestamp_millis() as i64 }
+  fn ago(&self) -> i64 { now() - self.ms() }
 }
 
 impl AsMs for String {
-  fn ms(&self) -> i64 {
-    self.as_str().ms()
-  }
-  fn ago(&self) -> i64 {
-    self.as_str().ago()
-  }
+  fn ms(&self) -> i64 { self.as_str().ms() }
+  fn ago(&self) -> i64 { self.as_str().ago() }
 }
 
 impl AsMs for &str {
@@ -52,6 +43,7 @@ impl AsMs for &str {
       "h" => 60 * 60,
       "d" => 60 * 60 * 24,
       "w" => 60 * 60 * 24 * 7,
+      "y" => 60 * 60 * 24 * 365,
       v => panic!("{} is not a supported step", v),
     } * q as i64
       * 1000;
@@ -99,9 +91,7 @@ impl AsMs for &str {
   }
 }
 
-pub fn now() -> i64 {
-  Utc::now().timestamp_millis() as i64
-}
+pub fn now() -> i64 { Utc::now().timestamp_millis() as i64 }
 
 pub trait MsExtra {
   fn round(&self, step: impl AsMs) -> i64;

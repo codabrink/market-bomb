@@ -33,10 +33,54 @@ lazy_static! {
 
 macro_rules! log {
   ($($arg:tt)*) => {
-    if cfg!(test) {
-      println!($($arg)*);
-    } else {
-      crate::terminal::log(format!($($arg)*));
-    }
+    #[cfg(test)]
+    println!($($arg)*);
+    #[cfg(not(test))]
+    crate::terminal::log(format!($($arg)*));
   };
+}
+
+pub trait Candles {
+  fn step(&self) -> i64;
+  fn ensure_congruent(&self) -> bool;
+}
+
+impl Candles for Vec<Candle> {
+  fn step(&self) -> i64 {
+    if self.is_empty() {
+      return 0;
+    }
+    &self[0].close_time - &self[0].open_time + 1
+  }
+  fn ensure_congruent(&self) -> bool {
+    if self.is_empty() {
+      return true;
+    }
+
+    let step = self.step();
+    let mut incongruities = 0;
+
+    for i in 0..(self.len() - 1) {
+      let expected = self[i].open_time + step;
+      let result = self[i + 1].open_time;
+
+      if expected != result {
+        incongruities += 1;
+        log!(
+          "Incongruity at index {} of {}. Expected {}, got {}.",
+          i,
+          self.len(),
+          expected,
+          result
+        );
+
+        if let Some(_) = self.iter().find(|c| c.open_time == expected) {
+          panic!("Candles are out of order");
+        }
+      }
+    }
+    assert_eq!(incongruities, 0);
+
+    true
+  }
 }

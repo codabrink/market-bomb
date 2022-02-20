@@ -221,7 +221,9 @@ impl Query {
   }
 
   fn missing_ungrouped(&self, record_type: RecordType) -> Result<Vec<i64>> {
-    assert!(!self.is_empty());
+    if self.is_empty() {
+      return Ok(vec![]);
+    }
 
     let step = self.step();
     let start = match self.get(&Start(0)) {

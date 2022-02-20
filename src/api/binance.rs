@@ -33,11 +33,20 @@ impl ApiTrait for Binance {
       Ok(())
     };
 
+    let pb_label = "Downloading candles...".to_owned();
+    let _ = terminal::PB.0.send((pb_label.clone(), 0.));
+
     let r = query.range().unwrap();
     let r = r.start..(r.end - 1);
     for start in (r.start..r.end).step_by(fetch_step) {
+      let _ = terminal::PB.0.send((
+        pb_label.clone(),
+        (start - r.start) as f64 / (r.end - r.start) as f64,
+      ));
       fetch(start, (start + fetch_step as i64).min(r.end))?;
     }
+
+    let _ = terminal::PB.0.send((pb_label.clone(), -1.));
 
     Ok(result)
   }

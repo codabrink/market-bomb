@@ -12,6 +12,7 @@ use termion::{
   screen::AlternateScreen,
 };
 use tui::style::Modifier;
+use tui::widgets::Gauge;
 use tui::{
   backend::CrosstermBackend,
   layout::{Constraint, Direction, Layout},
@@ -26,10 +27,6 @@ enum Event<I> {
   Tick,
 }
 
-lazy_static! {
-  pub static ref LOG: (Sender<String>, Receiver<String>) = unbounded();
-}
-
 pub fn log(msg: impl AsRef<str>) {
   let _ = LOG.0.send(msg.as_ref().to_string());
 }
@@ -37,6 +34,9 @@ pub fn log(msg: impl AsRef<str>) {
 lazy_static! {
   static ref RE_FORMAT: Regex =
     Regex::new(r"^(/(?P<fmt>[a-zA-Z]*)\s)?(?P<text>.+)$").unwrap();
+  pub static ref LOG: (Sender<String>, Receiver<String>) = unbounded();
+  pub static ref PB: (Sender<(String, f64)>, Receiver<(String, f64)>) =
+    unbounded();
 }
 
 pub struct Terminal {
@@ -86,6 +86,8 @@ impl Terminal {
     let mut cmd_index = 0;
     let mut log_offset = 0;
 
+    let mut progress_bars: HashMap<String, f64> = HashMap::new();
+
     loop {
       terminal.draw(|f| {
         let chunks = Layout::default()
@@ -95,6 +97,7 @@ impl Terminal {
             [
               Constraint::Length(1),
               Constraint::Length(3),
+              Constraint::Length(progress_bars.len() as u16),
               Constraint::Min(1),
             ]
             .as_ref(),
@@ -130,6 +133,9 @@ impl Terminal {
         ]);
         f.render_widget(Paragraph::new(stats), chunks[0]);
 
+        // ==============================
+        // Text input
+        // ==============================
         let input = Paragraph::new(self.input.as_ref())
           .style(Style::default())
           .block(Block::default().borders(Borders::ALL).title("Input"));
@@ -139,13 +145,32 @@ impl Terminal {
         );
         f.render_widget(input, chunks[1]);
 
+        // ==============================
+        // Progress bars
+        // ==============================
+        let pb_chunks = Layout::default()
+          .direction(Direction::Vertical)
+          .constraints(vec![Constraint::Length(1); progress_bars.len()])
+          .split(chunks[2]);
+
+        for (i, (name, p)) in progress_bars.iter().enumerate() {
+          let g = Gauge::default()
+            .ratio(*p)
+            .gauge_style(Style::default().fg(Color::Magenta).bg(Color::Green))
+            .label(name.clone());
+          f.render_widget(g, pb_chunks[i]);
+        }
+
+        // ==============================
+        // Logs
+        // ==============================
         let mut logs: VecDeque<ListItem> = logs
           .iter()
           .rev()
           .enumerate()
           .rev()
           .skip(log_offset)
-          .take(chunks[2].height as usize)
+          .take(chunks[3].height as usize)
           .fold(VecDeque::new(), |mut vec, (i, l)| {
             let i = i.to_string();
             let caps = RE_FORMAT.captures(l).unwrap();
@@ -157,7 +182,7 @@ impl Terminal {
             let new_items: Vec<ListItem> = text
               .chars()
               .collect::<Vec<char>>()
-              .chunks(chunks[2].width as usize - (i.len() + 2))
+              .chunks(chunks[3].width as usize - (i.len() + 2))
               .map(|c| c.iter().collect::<String>())
               .collect::<Vec<String>>()
               .into_iter()
@@ -183,24 +208,32 @@ impl Terminal {
             vec.extend(new_items);
             vec
           });
+
         if log_offset > 0 {
           logs.push_front(ListItem::new(format!(
             "--- More ({}) ---",
             log_offset
           )));
         }
-        logs.truncate(chunks[2].height as usize);
+        logs.truncate(chunks[3].height as usize);
 
         f.render_widget(
           List::new(logs)
             .block(Block::default().borders(Borders::TOP).title("Logs")),
-          chunks[2],
+          chunks[3],
         );
       })?;
 
       for log in LOG.1.try_iter() {
         logs.push_front(log);
         logs.truncate(300);
+      }
+      for (name, p) in PB.1.try_iter() {
+        if p == -1. {
+          progress_bars.remove(&name);
+        } else {
+          progress_bars.insert(name, p);
+        }
       }
 
       match self.events.recv()? {

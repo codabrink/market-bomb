@@ -1,4 +1,5 @@
 #![feature(thread_id_value)]
+#![feature(backtrace)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -23,33 +24,11 @@ use std::{thread, time::Duration};
 
 fn main() {
   std::thread::spawn(|| {
-    build_history();
+    strategy::build_cache("BTCUSDT");
   });
 
   database::candle_counting_thread();
   terminal::Terminal::new();
-}
-
-fn build_history() {
-  let config = Config::load();
-  let mut q = Query::new("BTCUSDT", "1d");
-
-  for interval in ["1d", "4h", "1h"] {
-    q.set_interval(interval);
-    q.set_all(&[
-      Start(format!("{}d", config.history_start).ago()),
-      End(format!("{}d", config.history_end).ago()),
-    ]);
-    API.save_candles(&mut q);
-
-    strategy::check_things();
-  }
-
-  q.set_interval("15m");
-  q.set_all(&[Start("1y".ago()), End(now())]);
-  API.save_candles(&mut q);
-
-  MovingAverage::calculate_ema("BTCUSDT", "4h", 200);
 }
 
 fn train(symbol: &str, interval: &str) -> Result<()> {

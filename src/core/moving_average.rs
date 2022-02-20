@@ -15,64 +15,63 @@ pub struct MovingAverage {
 impl MovingAverage {
   pub const DB_COLUMNS: &'static str = "symbol, interval, ms, len, val, exp";
 
+  pub fn calculate_ma(symbol: &str, interval: &str, len: usize) -> Result<()> {
+    let q = Query::new(symbol, interval);
+    let candles = q.query_candles()?;
+
+    assert!(len < candles.len());
+    candles.ensure_congruent();
+
+    let mut sum = candles[..len].iter().fold(0., |acc, c| acc + c.close) as f32;
+    let len_i32 = len as i32;
+    let len_f32 = len as f32;
+
+    for i in (len + 1)..candles.len() {
+      MovingAverage {
+        symbol: symbol.to_owned(),
+        interval: interval.to_owned(),
+        ms: candles[i].open_time,
+        len: len_i32,
+        val: sum / len_f32,
+        exp: false,
+      }
+      .save()?;
+
+      // is this good? I have to go. Check this later.
+      sum -= candles[i - len].close;
+      sum += candles[i].close;
+    }
+
+    Ok(())
+  }
+
   pub fn calculate_ema(symbol: &str, interval: &str, len: usize) -> Result<()> {
     let q = Query::new(symbol, interval);
     let candles = q.query_candles()?;
 
     assert!(len < candles.len());
-
-    let step = interval.ms();
-
-    // ensure candles are one continguous chunk
-    // ==========================================
-    assert!(candles[0].open_time < candles.last().unwrap().open_time);
-    let mut incongruities = 0;
-
-    for i in 0..(candles.len() - 1) {
-      let expected = candles[i].open_time + step;
-      let result = candles[i + 1].open_time;
-
-      if expected != result {
-        incongruities += 1;
-        log!(
-          "Incongruity at index {} of {}. Expected {}, got {}.",
-          i,
-          candles.len(),
-          expected,
-          result
-        );
-
-        if let Some(_) = candles.iter().find(|c| c.open_time == expected) {
-          panic!("Candles are out of order");
-        }
-      }
-    }
-    assert_eq!(incongruities, 0);
-    // ==========================================
+    candles.ensure_congruent();
 
     let mut ma = candles[..len].iter().fold(0., |acc, c| acc + c.close) as f32
       / len as f32;
     let k = 2. / (len as f32 + 1.);
-    let mut result = vec![];
 
     let len_i32 = len as i32;
 
     for i in len..candles.len() {
       ma = candles[i].close * k + ma * (1. - k);
 
-      result.push(MovingAverage {
+      MovingAverage {
         symbol: symbol.to_owned(),
         interval: interval.to_owned(),
         ms: candles[i].open_time,
         len: len_i32,
         val: ma,
         exp: true,
-      });
+      }
+      .save()?;
     }
 
-    for ma in &result {
-      ma.save()?;
-    }
     log!("Done");
 
     Ok(())
@@ -106,13 +105,13 @@ impl MovingAverage {
   }
 
   fn save(&self) -> Result<()> {
-    log!(
-      "Saving {} EMA {} for {}, val: {}",
-      self.interval,
-      self.len,
-      self.ms.to_human(),
-      self.val
-    );
+    // log!(
+    // "Saving {} EMA {} for {}, val: {}",
+    // self.interval,
+    // self.len,
+    // self.ms.to_human(),
+    // self.val
+    // );
 
     let result = con().execute(
       "INSERT INTO moving_averages (symbol, interval, ms, len, val, exp) values ($1, $2, $3, $4, $5, $6)",

@@ -38,9 +38,16 @@ impl Api {
         }?;
 
         log!("Api returned {} candles.", candles.len());
+        let pb_label = "Inserting candles...".to_owned();
+        let _ = terminal::PB.0.send((pb_label.clone(), 0.));
+        let (mut i, num_candles) = (0f64, candles.len() as f64);
+
         for candle in candles {
+          let _ = terminal::PB.0.send((pb_label.clone(), i / num_candles));
           query.insert_candle(&candle)?;
+          i += 1.;
         }
+        let _ = terminal::PB.0.send((pb_label.clone(), -1.));
       }
 
       tries += 1;
