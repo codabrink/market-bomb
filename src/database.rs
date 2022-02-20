@@ -55,7 +55,7 @@ pub struct Query {
   symbol: String,
   interval: String,
   step: i64,
-  options: HashSet<QueryOpt>,
+  options: HashMap<&'static str, QueryOpt>,
 }
 
 #[derive(Clone, Debug, Eq)]
@@ -66,6 +66,23 @@ pub enum QueryOpt {
   Order(Order),
   TopDomain(i32),
   BottomDomain(i32),
+  Exp(bool),
+  Len(i32),
+}
+
+impl From<&QueryOpt> for &str {
+  fn from(qo: &QueryOpt) -> Self {
+    match qo {
+      Start(_) => "start",
+      End(_) => "end",
+      Limit(_) => "limit",
+      Order(_) => "order",
+      TopDomain(_) => "top_domain",
+      BottomDomain(_) => "bottom_domain",
+      Exp(_) => "exp",
+      Len(_) => "len",
+    }
+  }
 }
 
 impl PartialEq for QueryOpt {
@@ -83,13 +100,14 @@ impl Query {
       symbol: symbol.to_owned(),
       interval: interval.to_owned(),
       step: interval.ms(),
-      options: HashSet::new(),
+      options: HashMap::new(),
     }
   }
   pub fn default() -> Self { Self::new("BTCUSDT", "15m") }
 
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
-    self.options.get(opt)
+    let s: &str = opt.into();
+    self.options.get(s)
   }
   pub fn symbol(&self) -> &str { &self.symbol }
   pub fn interval(&self) -> &str { &self.interval }
@@ -102,7 +120,8 @@ impl Query {
       v => v,
     };
 
-    self.options.replace(opt);
+    let k: &str = (&opt).into();
+    self.options.insert(k, opt);
   }
 
   pub fn candle_index(&self, candle: &Candle) -> usize {
@@ -131,7 +150,10 @@ impl Query {
 
   pub fn clear(&mut self) { self.options.clear(); }
 
-  pub fn remove(&mut self, opt: &QueryOpt) { self.options.remove(&opt); }
+  pub fn remove(&mut self, opt: &QueryOpt) {
+    let k: &str = opt.into();
+    self.options.remove(k);
+  }
 
   pub fn set_interval(&mut self, interval: &str) {
     self.interval = interval.to_owned();
@@ -163,6 +185,12 @@ impl Query {
   }
 
   pub fn step(&self) -> i64 { self.interval.ms() }
+  pub fn len(&self) -> i32 {
+    if let Some(End(v)) = self.get(&Len(0)) {
+      return *v as i32;
+    }
+    0
+  }
 
   fn serialize(
     &self,
@@ -183,7 +211,7 @@ impl Query {
     let mut limit = None;
     let mut order = ASC;
 
-    for o in &self.options {
+    for (_, o) in &self.options {
       match o {
         Start(start) => query.push_str(&format!(" AND open_time >= {}", start)),
         End(end) => query.push_str(&format!(" AND open_time <= {}", end)),
@@ -235,18 +263,21 @@ impl Query {
       _ => bail!("Need and end of the range"),
     };
 
-    let table = match record_type {
-      RecordType::Candles => "candles",
-      RecordType::MovingAverage => "moving_averages",
+    let (table, extra) = match record_type {
+      RecordType::Candles => ("candles", "".to_owned()),
+      RecordType::MovingAverage => (
+        "moving_averages",
+        format!(" AND len={len}", len = self.len()),
+      ),
     };
 
-    let rows = con().query(
-              &format!("
-SELECT c.open_time
-FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
-WHERE NOT EXISTS (SELECT 1 FROM {table} where open_time = c.open_time AND symbol = $4 AND interval = $5)", table = table),
-              &[&start, &end, &step, &self.symbol, &self.interval],
-          )?;
+    let q = format!("
+      SELECT c.open_time
+      FROM generate_series($1::bigint, $2::bigint, $3::bigint) c(open_time)
+      WHERE NOT EXISTS (SELECT 1 FROM {table} where open_time=c.open_time AND symbol='{symbol}' AND interval='{interval}'{extra})",
+      table = table, symbol = self.symbol, interval = self.interval, extra = extra);
+
+    let rows = con().query(&q, &[&start, &end, &step])?;
 
     Ok(rows.iter().map(|i| i.get(0)).collect())
   }
