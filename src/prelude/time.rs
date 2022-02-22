@@ -2,10 +2,7 @@ use chrono;
 use chrono::Datelike;
 use chrono::{prelude::*, Utc};
 use regex::Regex;
-use std::{
-  ops::Sub,
-  time::{Duration, UNIX_EPOCH},
-};
+use std::time::{Duration, UNIX_EPOCH};
 
 const DATETIME_FORMAT: &str = "%m/%d/%y %H:%M";
 lazy_static! {
@@ -39,14 +36,15 @@ impl AsMs for &str {
 
     // get self in seconds
     let milliseconds = match &caps["unit"] {
-      "m" => 60,
-      "h" => 60 * 60,
-      "d" => 60 * 60 * 24,
-      "w" => 60 * 60 * 24 * 7,
-      "y" => 60 * 60 * 24 * 365,
+      "m" => 1,
+      "h" => 60,
+      "d" => 60 * 24,
+      "w" => 60 * 24 * 7,
+      "M" => 60 * 24 * 30,
+      "y" => 60 * 24 * 365,
       v => panic!("{} is not a supported step", v),
     } * q as i64
-      * 1000;
+      * 60000;
 
     match self.chars().nth(0).unwrap() {
       '-' => -milliseconds,

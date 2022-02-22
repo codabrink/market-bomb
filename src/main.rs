@@ -1,5 +1,4 @@
 #![feature(thread_id_value)]
-#![feature(backtrace)]
 
 #[macro_use]
 extern crate lazy_static;
@@ -13,6 +12,7 @@ mod config;
 mod core;
 pub mod database;
 mod frame;
+mod normalized;
 mod strategy;
 mod terminal;
 mod web_server;

@@ -16,11 +16,12 @@ pub enum Api {
 
 impl Api {
   pub fn save_candles(&self, query: &mut Query) -> Result<Vec<Candle>> {
-    let step = query.step();
-    let range = query.range().expect("Query needs a start and an end.");
-
     let mut tries = 0;
     let mut missing = query.missing_candles()?;
+
+    if missing.is_empty() {
+      return query.query_candles();
+    }
 
     while !missing.is_empty() && tries < 3 {
       log!(

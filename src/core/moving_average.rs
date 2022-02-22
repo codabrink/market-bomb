@@ -152,14 +152,20 @@ mod tests {
   fn moving_averages_to_and_from_db() -> Result<()> {
     let symbol = "BTCUSDT";
     let interval = "15m";
+    let len = 10;
 
     let mut query = Query::new(symbol, interval);
     query.set_all(&[Start("5d".ago()), End("3d".ago())]);
     let _ = API.save_candles(&mut query)?;
 
-    MovingAverage::calculate_ema(symbol, interval, 10)?;
-    let ma = MovingAverage::query(symbol, interval, 10, true, None)?;
-    assert_eq!(ma.len(), 182);
+    query.set(Len(len));
+
+    let missing_ma = query.missing_ma_ungrouped()?;
+    assert_eq!(missing_ma.len(), query.num_candles());
+
+    MovingAverage::calculate_ema(symbol, interval, len as usize)?;
+    let ma = MovingAverage::query(symbol, interval, len, true, None)?;
+    assert_eq!(ma.len(), query.num_candles() - len as usize);
 
     Ok(())
   }

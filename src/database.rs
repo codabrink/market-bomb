@@ -115,8 +115,8 @@ impl Query {
   pub fn set(&mut self, opt: QueryOpt) {
     // round time values to interval
     let opt = match opt {
-      Start(start) => Start(start.round(self.interval.as_str())),
-      End(end) => End(end.round(self.interval.as_str())),
+      Start(start) => Start(start.round(self.step)),
+      End(end) => End(end.round(self.step)),
       v => v,
     };
 
@@ -124,16 +124,16 @@ impl Query {
     self.options.insert(k, opt);
   }
 
+  pub fn set_all(&mut self, opt: &[QueryOpt]) {
+    for opt in opt {
+      self.set(opt.clone());
+    }
+  }
+
   pub fn candle_index(&self, candle: &Candle) -> usize {
     match self.start() {
       Some(start) => ((candle.open_time - start) / self.step) as usize,
       _ => 0,
-    }
-  }
-
-  pub fn set_all(&mut self, opt: &[QueryOpt]) {
-    for opt in opt {
-      self.set(opt.clone());
     }
   }
 
@@ -259,7 +259,7 @@ impl Query {
       _ => bail!("Need a beginning of the range"),
     };
     let end = match self.get(&End(0)) {
-      Some(End(e)) => *e,
+      Some(End(e)) => *e - 1,
       _ => bail!("Need and end of the range"),
     };
 
@@ -282,8 +282,16 @@ impl Query {
     Ok(rows.iter().map(|i| i.get(0)).collect())
   }
 
+  pub fn missing_ma_ungrouped(&self) -> Result<Vec<i64>> {
+    self.missing_ungrouped(RecordType::MovingAverage)
+  }
+
   pub fn missing_candles_ungrouped(&self) -> Result<Vec<i64>> {
     self.missing_ungrouped(RecordType::Candles)
+  }
+
+  pub fn is_missing_candles(&self) -> bool {
+    !self.missing_candles_ungrouped().unwrap().is_empty()
   }
 
   pub fn missing_candles(&self) -> Result<Vec<Range<i64>>> {
@@ -296,13 +304,13 @@ impl Query {
     // group the missing candles
     for i in 1..missing.len() {
       if missing[i - 1] + step != missing[i] {
-        result.push(missing[range_start]..missing[i - 1]);
+        result.push(missing[range_start]..(missing[i - 1] + step));
         range_start = i;
       }
     }
     // push the leftovers
     if missing.len() > range_start {
-      result.push(missing[range_start]..missing[missing.len() - 1]);
+      result.push(missing[range_start]..(missing[missing.len() - 1] + step));
     }
     Ok(result)
   }
