@@ -32,7 +32,7 @@ impl Api {
       for range in missing {
         let mut subquery = query.clone();
         // split the range up so we don't get rate-limited
-        subquery.set_all(&[Start(range.start), End(range.end)]);
+        subquery.set_all(vec![Start(range.start), End(range.end)]);
         log!("missing: {:?}", range);
         let candles = match self {
           Self::Binance(b) => b.fetch_candles(&subquery),

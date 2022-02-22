@@ -124,9 +124,9 @@ impl Query {
     self.options.insert(k, opt);
   }
 
-  pub fn set_all(&mut self, opt: &[QueryOpt]) {
+  pub fn set_all(&mut self, opt: Vec<QueryOpt>) {
     for opt in opt {
-      self.set(opt.clone());
+      self.set(opt);
     }
   }
 
@@ -161,7 +161,7 @@ impl Query {
   }
 
   pub fn set_range(&mut self, range: Range<i64>) {
-    self.set_all(&[Start(range.start), End(range.end)]);
+    self.set_all(vec![Start(range.start), End(range.end)]);
   }
   pub fn range(&self) -> Option<Range<i64>> {
     match (self.get(&Start(0)), self.get(&End(0))) {
@@ -185,11 +185,17 @@ impl Query {
   }
 
   pub fn step(&self) -> i64 { self.interval.ms() }
-  pub fn len(&self) -> i32 {
-    if let Some(End(v)) = self.get(&Len(0)) {
-      return *v as i32;
+  pub fn len(&self) -> Option<i32> {
+    if let Some(Len(v)) = self.get(&Len(0)) {
+      return Some(*v);
     }
-    0
+    None
+  }
+  pub fn exp(&self) -> Option<bool> {
+    if let Some(Exp(v)) = self.get(&Exp(false)) {
+      return Some(*v);
+    }
+    None
   }
 
   fn serialize(
@@ -267,7 +273,11 @@ impl Query {
       RecordType::Candles => ("candles", "".to_owned()),
       RecordType::MovingAverage => (
         "moving_averages",
-        format!(" AND len={len}", len = self.len()),
+        format!(
+          " AND len={len} AND exp={exp}",
+          len = self.len().expect("Needs a len"),
+          exp = self.exp().expect("Needs an exp")
+        ),
       ),
     };
 
@@ -643,7 +653,7 @@ mod tests {
   #[test]
   fn query_works() -> Result<()> {
     let mut query = Query::new("BTCUSDT", "15m");
-    query.set_all(&[Start("1h".ago()), End("0m".ago())]);
+    query.set_all(vec![Start("1h".ago()), End("0m".ago())]);
 
     assert!(!query.is_empty());
 
@@ -699,7 +709,7 @@ mod tests {
       _ => bail!("known_siblings is not returning two candles as expected."),
     }
 
-    query.set_all(&[Start(c1.open_time), End(c2.open_time)]);
+    query.set_all(vec![Start(c1.open_time), End(c2.open_time)]);
     query.linear_regression()?;
     let count = query.count_candles()?;
 
@@ -707,7 +717,7 @@ mod tests {
     // | | | | | | | | |
     assert_eq!(count, 9);
 
-    query.set_all(&[Start(c1.open_time + step), End(c1.open_time + step)]);
+    query.set_all(vec![Start(c1.open_time + step), End(c1.open_time + step)]);
     let candles = query.query_candles()?;
     assert_eq!(candles.len(), 1);
 

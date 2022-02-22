@@ -92,7 +92,7 @@ mod tests {
     let api = Binance::new();
     let mut query = Query::default();
 
-    query.set_all(&[Start("4h".ago()), End("3h".ago())]);
+    query.set_all(vec![Start("4h".ago()), End("3h".ago())]);
     assert_eq!(query.end().unwrap() - query.start().unwrap(), "1h".ms());
 
     assert_eq!(query.missing_candles_ungrouped()?.len(), 4);

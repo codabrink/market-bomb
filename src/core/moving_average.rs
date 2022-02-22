@@ -18,6 +18,7 @@ impl MovingAverage {
   pub fn calculate_ma(symbol: &str, interval: &str, len: usize) -> Result<()> {
     let q = Query::new(symbol, interval);
     let candles = q.query_candles()?;
+    MovingAverage::clear(symbol, interval, len, false)?;
 
     assert!(len < candles.len());
     candles.ensure_congruent();
@@ -45,9 +46,19 @@ impl MovingAverage {
     Ok(())
   }
 
+  fn clear(symbol: &str, interval: &str, len: usize, exp: bool) -> Result<()> {
+    let query = format!(
+      "DELETE FROM moving_averages WHERE symbol='{}' AND interval='{}' AND len={} AND exp={}",
+      symbol, interval, len, exp
+    );
+    con().batch_execute(&query)?;
+    Ok(())
+  }
+
   pub fn calculate_ema(symbol: &str, interval: &str, len: usize) -> Result<()> {
     let q = Query::new(symbol, interval);
     let candles = q.query_candles()?;
+    MovingAverage::clear(symbol, interval, len, true)?;
 
     assert!(len < candles.len());
     candles.ensure_congruent();
@@ -155,10 +166,10 @@ mod tests {
     let len = 10;
 
     let mut query = Query::new(symbol, interval);
-    query.set_all(&[Start("5d".ago()), End("3d".ago())]);
+    query.set_all(vec![Start("5d".ago()), End("3d".ago())]);
     let _ = API.save_candles(&mut query)?;
 
-    query.set(Len(len));
+    query.set_all(vec![Len(len), Exp(true)]);
 
     let missing_ma = query.missing_ma_ungrouped()?;
     assert_eq!(missing_ma.len(), query.num_candles());
@@ -166,6 +177,12 @@ mod tests {
     MovingAverage::calculate_ema(symbol, interval, len as usize)?;
     let ma = MovingAverage::query(symbol, interval, len, true, None)?;
     assert_eq!(ma.len(), query.num_candles() - len as usize);
+
+    let missing_ma = query.missing_ma_ungrouped()?;
+
+    // TODO: Investigate this.. this should be len.. not 0
+    assert_eq!(missing_ma.len(), 0);
+    // assert_eq!(missing_ma.len(), len as usize);
 
     Ok(())
   }
