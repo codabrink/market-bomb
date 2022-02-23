@@ -318,6 +318,7 @@ impl Query {
         range_start = i;
       }
     }
+
     // push the leftovers
     if missing.len() > range_start {
       result.push(missing[range_start]..(missing[missing.len() - 1] + step));

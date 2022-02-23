@@ -27,7 +27,7 @@ impl MovingAverage {
     let len_i32 = len as i32;
     let len_f32 = len as f32;
 
-    for i in (len + 1)..candles.len() {
+    for i in len..candles.len() {
       MovingAverage {
         symbol: symbol.to_owned(),
         interval: interval.to_owned(),
@@ -38,7 +38,6 @@ impl MovingAverage {
       }
       .save()?;
 
-      // is this good? I have to go. Check this later.
       sum -= candles[i - len].close;
       sum += candles[i].close;
     }

@@ -4,10 +4,10 @@ use crate::prelude::*;
 // 1. Distance from MA/EMA
 //   - On a percent of the price multiplied by a constant
 // 2. Tweak these values as needed
-//   - 3y of monthly candles
-//   - 6m of weekly candles
-//   - 1m of daily candles
-//   - 1w of hourly
+//   - 2y of weekly candles
+//   - 4w of daily candles
+//   - 1w of 4h candles
+//   - 4d of hourly
 //   - 2d of 15m
 
 pub struct MA {

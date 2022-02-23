@@ -78,10 +78,11 @@ impl AsMs for &str {
         let mut now = now();
         let n: i64 = caps["n"].parse().unwrap();
         match &caps["unit"] {
+          "w" => now -= n * "1w".ms(),
           "d" => now -= n * "1d".ms(),
           "h" => now -= n * "1h".ms(),
           "m" => now -= n * "1m".ms(),
-          _ => {}
+          _ => unreachable! {},
         }
         return now;
       }
@@ -91,6 +92,8 @@ impl AsMs for &str {
 
 pub fn now() -> i64 { Utc::now().timestamp_millis() as i64 }
 
+const WEEK_MS: i64 = 604800000;
+
 pub trait MsExtra {
   fn round(&self, step: impl AsMs) -> i64;
   fn to_human(&self) -> String;
@@ -99,7 +102,11 @@ pub trait MsExtra {
 impl MsExtra for i64 {
   fn round(&self, step: impl AsMs) -> i64 {
     let step = step.ms();
-    self - self % step
+    match step {
+      // epoch was on a Thursday, so this must be corrected
+      WEEK_MS => self - self % step + "4d".ms(),
+      _ => self - self % step,
+    }
   }
   fn to_datetime(&self) -> DateTime<Utc> {
     let d = UNIX_EPOCH + Duration::from_millis(*self as u64);
@@ -112,11 +119,8 @@ impl MsExtra for i64 {
   }
 }
 
+#[cfg(test)]
 mod prelude_time_tests {
-  use crate::prelude::*;
-  use chrono::Datelike;
-  // use chrono::TimeZone;
-  use chrono::Utc;
 
   #[test]
   fn ms_to_human_works() {
@@ -131,11 +135,28 @@ mod prelude_time_tests {
 
   #[test]
   fn ago_works() {
+    use crate::prelude::*;
+    use chrono::Datelike;
+    use chrono::Utc;
+
     let now = Utc::now();
     let one_y_ago = "1y".ago().to_datetime();
 
     assert_eq!(now.year() - 1, one_y_ago.year());
     assert_eq!(now.day(), one_y_ago.day());
     assert_eq!(now.month(), one_y_ago.month());
+  }
+
+  #[test]
+  fn time_weeks() {
+    use crate::prelude::*;
+
+    let start = "7w".ago();
+    let end = "1w".ago();
+
+    println!("start: {}", start);
+    println!("end:   {}", end);
+
+    assert_eq!((start..end).num_candles("1w"), 6);
   }
 }

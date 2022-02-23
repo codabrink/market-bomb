@@ -106,4 +106,16 @@ mod tests {
 
     Ok(())
   }
+
+  #[test]
+  fn week_interval_works() -> Result<()> {
+    let api = Binance::new();
+    let mut query = Query::new("BTCUSDT", "1w");
+    query.set_all(vec![Start("20w".ago()), End(now())]);
+
+    let candles = api.save_candles(&mut query)?;
+    assert_eq!(candles.len(), 20);
+
+    Ok(())
+  }
 }
