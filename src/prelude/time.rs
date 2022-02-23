@@ -69,24 +69,13 @@ impl AsMs for &str {
           }
           _ => unreachable!(),
         }
-        return Utc
+        Utc
           .ymd(year as i32, month, now.day())
           .and_hms(now.hour(), now.minute(), 0)
-          .ms();
+          .ms()
       }
-      _ => {
-        let mut now = now();
-        let n: i64 = caps["n"].parse().unwrap();
-        match &caps["unit"] {
-          "w" => now -= n * "1w".ms(),
-          "d" => now -= n * "1d".ms(),
-          "h" => now -= n * "1h".ms(),
-          "m" => now -= n * "1m".ms(),
-          _ => unreachable! {},
-        }
-        return now;
-      }
-    };
+      _ => now() - input.ms(),
+    }
   }
 }
 
@@ -103,7 +92,7 @@ impl MsExtra for i64 {
   fn round(&self, step: impl AsMs) -> i64 {
     let step = step.ms();
     match step {
-      // epoch was on a Thursday, so this must be corrected
+      // epoch was on a Thursday, so this must be adjusted
       WEEK_MS => self - self % step + "4d".ms(),
       _ => self - self % step,
     }
