@@ -24,7 +24,10 @@ pub struct NormalizedData {
   close: f32,
   high: f32,
   low: f32,
+  ma: Vec<f32>,
 }
+
+const MA_MULT: f32 = 8.;
 
 pub fn normalize(
   symbol: &str,
@@ -32,11 +35,7 @@ pub fn normalize(
   segments: Vec<CandleSegment>,
   moving_averages: Vec<MA>,
 ) -> Result<Vec<NormalizedData>> {
-  let mut candles = vec![];
-
-  // =====================
-  // TODO: Gather MA
-  // =====================
+  let mut data = vec![];
 
   // Gather the candle data
   for segment in segments {
@@ -44,25 +43,40 @@ pub fn normalize(
     let len = segment.len.ms();
     query.set_range((cursor - len)..cursor);
 
-    candles.append(&mut API.save_candles(&mut query)?);
+    let candles = API.save_candles(&mut query)?;
+    for candle in candles {
+      let ma_prices: Vec<f32> = moving_averages
+        .iter()
+        .map(|ma| {
+          let val = query
+            .ma_price(symbol, &ma.interval, candle.open_time, ma.len, ma.exp)
+            .expect("Do not have MA price.");
+          (val - candle.close) / candle.close * MA_MULT
+        })
+        .collect();
+
+      data.push((candle, ma_prices))
+    }
+
     cursor -= len;
   }
 
-  let c = &candles[0];
-  let (max, min) = candles.iter().fold((c.high, c.low), |(max, min), c| {
+  let (c, _) = &data[0];
+  let (max, min) = data.iter().fold((c.high, c.low), |(max, min), (c, _)| {
     (max.max(c.high), min.min(c.low))
   });
 
   // get the range of values
   let r = max - min;
-  // normalize the candles
-  let ncd = candles
-    .iter()
-    .map(|c| NormalizedData {
+  // normalize the data
+  let ncd = data
+    .into_iter()
+    .map(|(c, ma)| NormalizedData {
       open: r / (c.open - min),
       close: r / (c.close - min),
       high: r / (c.high - min),
       low: r / (c.low - min),
+      ma,
     })
     .collect();
 

@@ -198,6 +198,19 @@ impl Query {
     None
   }
 
+  pub fn ma_price(
+    &mut self,
+    symbol: &str,
+    interval: &str,
+    ms: i64,
+    len: i32,
+    exp: bool,
+  ) -> Option<f32> {
+    let query = format!("SELECT val FROM moving_averages WHERE symbol = '{}' AND INTERVAL = '{}' AND ms <= {} AND exp = {} AND len = {} ORDER BY ms DESC LIMIT 1",symbol, interval, ms, exp, len);
+    let rows = con().query(query.as_str(), &[]).unwrap();
+    rows.get(0).map(|c| c.get(0))
+  }
+
   fn serialize(
     &self,
     columns: Option<&str>,

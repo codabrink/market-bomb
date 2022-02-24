@@ -155,8 +155,8 @@ impl Terminal {
 
         for (i, (name, p)) in progress_bars.iter().enumerate() {
           let g = Gauge::default()
-            .ratio(*p)
-            .gauge_style(Style::default().fg(Color::Magenta).bg(Color::Green))
+            .ratio((*p).min(1.))
+            .gauge_style(Style::default().fg(Color::White).bg(Color::Green))
             .label(name.clone());
           f.render_widget(g, pb_chunks[i]);
         }

@@ -27,6 +27,9 @@ impl MovingAverage {
     let len_i32 = len as i32;
     let len_f32 = len as f32;
 
+    let pb_label = format!("Moving Average {}, {} - {}", symbol, interval, len);
+    terminal::PB.0.send((pb_label.clone(), 0.))?;
+
     for i in len..candles.len() {
       MovingAverage {
         symbol: symbol.to_owned(),
@@ -40,7 +43,13 @@ impl MovingAverage {
 
       sum -= candles[i - len].close;
       sum += candles[i].close;
+
+      terminal::PB
+        .0
+        .send((pb_label.clone(), i as f64 / (candles.len() - len) as f64))?;
     }
+
+    let _ = terminal::PB.0.send((pb_label.clone(), -1.));
 
     Ok(())
   }
@@ -67,6 +76,11 @@ impl MovingAverage {
     let k = 2. / (len as f32 + 1.);
 
     let len_i32 = len as i32;
+    let pb_label = format!(
+      "Exponential moving Average {}, {} - {}",
+      symbol, interval, len
+    );
+    terminal::PB.0.send((pb_label.clone(), 0.))?;
 
     for i in len..candles.len() {
       ma = candles[i].close * k + ma * (1. - k);
@@ -80,8 +94,14 @@ impl MovingAverage {
         exp: true,
       }
       .save()?;
+
+      terminal::PB.0.send((
+        pb_label.clone(),
+        i as f64 / (candles.len() as f64 - len as f64),
+      ))?;
     }
 
+    let _ = terminal::PB.0.send((pb_label.clone(), -1.));
     log!("Done");
 
     Ok(())

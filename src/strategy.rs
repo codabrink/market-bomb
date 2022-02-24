@@ -7,7 +7,7 @@ pub fn build_cache(symbol: &str) -> Result<()> {
   let history_start = format!("{}d", config.history_start).ago();
   let history_end = format!("{}d", config.history_end).ago();
 
-  for interval in ["1d", "4h", "1h"] {
+  for interval in ["1w", "1d", "4h", "1h"] {
     q.set_interval(interval);
     q.set_all(vec![Start(history_start), End(history_end)]);
     API.save_candles(&mut q)?;
@@ -18,6 +18,7 @@ pub fn build_cache(symbol: &str) -> Result<()> {
   API.save_candles(&mut q)?;
 
   MovingAverage::calculate_ema(symbol, "4h", 200)?;
+  MovingAverage::calculate_ma(symbol, "1d", 50)?;
 
   Ok(())
 }
