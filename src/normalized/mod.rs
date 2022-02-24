@@ -11,13 +11,22 @@ use crate::prelude::*;
 //   - 2d of 15m
 
 pub struct MA {
-  len: i32,
-  interval: String,
-  exp: bool,
+  pub len: i32,
+  pub interval: String,
+  pub exp: bool,
 }
 pub struct CandleSegment {
-  len: String,
-  interval: String,
+  pub len: String,
+  pub interval: String,
+}
+
+impl CandleSegment {
+  pub fn new(len: &str, interval: &str) -> Self {
+    Self {
+      len: len.to_string(),
+      interval: interval.to_string(),
+    }
+  }
 }
 pub struct NormalizedData {
   open: f32,
@@ -27,6 +36,31 @@ pub struct NormalizedData {
   ma: Vec<f32>,
 }
 
+pub trait ExportData {
+  fn export(&self, path: &Path) -> Result<()>;
+}
+impl ExportData for Vec<NormalizedData> {
+  fn export(&self, path: &Path) -> Result<()> {
+    fs::create_dir_all(path.parent().unwrap())?;
+
+    let mut csv = File::create(path)?;
+    for d in self {
+      let ma: Vec<String> = d.ma.iter().map(|ma| ma.to_string()).collect();
+      writeln!(
+        &mut csv,
+        "{},{},{},{},{}",
+        d.open,
+        d.close,
+        d.high,
+        d.low,
+        ma.join(",")
+      )?;
+    }
+
+    Ok(())
+  }
+}
+
 const MA_MULT: f32 = 8.;
 
 pub fn normalize(
@@ -34,7 +68,7 @@ pub fn normalize(
   mut cursor: i64,
   segments: Vec<CandleSegment>,
   moving_averages: Vec<MA>,
-) -> Result<Vec<NormalizedData>> {
+) -> Result<(f32, f32, Vec<NormalizedData>)> {
   let mut data = vec![];
 
   // Gather the candle data
@@ -51,7 +85,7 @@ pub fn normalize(
           let val = query
             .ma_price(symbol, &ma.interval, candle.open_time, ma.len, ma.exp)
             .expect("Do not have MA price.");
-          (val - candle.close) / candle.close * MA_MULT
+          (val - candle.close) / candle.close
         })
         .collect();
 
@@ -72,13 +106,13 @@ pub fn normalize(
   let ncd = data
     .into_iter()
     .map(|(c, ma)| NormalizedData {
-      open: r / (c.open - min),
-      close: r / (c.close - min),
-      high: r / (c.high - min),
-      low: r / (c.low - min),
+      open: (c.open - min) / r,
+      close: (c.close - min) / r,
+      high: (c.high - min) / r,
+      low: (c.low - min) / r,
       ma,
     })
     .collect();
 
-  Ok(ncd)
+  Ok((max, min, ncd))
 }

@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use anyhow::Result;
+use normalized::*;
 
 fn recognized() {
   log!("/gB Command recognized.");
@@ -39,6 +40,42 @@ pub fn parse_command(cmd: String) -> Result<()> {
       let _ = api.save_candles(&mut query)?;
       let after_count = query.count_candles()?;
       log!("Downloaded {} candles.", after_count - before_count);
+    }
+    "build_csv" => {
+      recognized();
+      let mut query = Query::new("BTCUSDT", "1h");
+      for ms in "1y".ago().."2y".ago() {
+        let (max, min, d) = normalize(
+          "BTCUSDT",
+          ms,
+          vec![
+            CandleSegment::new("1y", "1w"),
+            CandleSegment::new("6w", "1d"),
+            CandleSegment::new("1w", "4h"),
+            CandleSegment::new("4d", "1h"),
+            CandleSegment::new("2d", "15m"),
+          ],
+          vec![
+            MA {
+              interval: "4h".to_string(),
+              len: 200,
+              exp: true,
+            },
+            MA {
+              interval: "1d".to_string(),
+              len: 50,
+              exp: false,
+            },
+          ],
+        )?;
+
+        let price_now = query.price(ms).unwrap();
+        let price_future = query.price(ms + "8h".ms()).unwrap();
+
+        let pct = (price_future - price_now) / price_now;
+        let p = PathBuf::from(format!("builder/csv/train/BTCUSDT/{}.csv", pct));
+        d.export(&p)?;
+      }
     }
     _ => {
       log!("/yB Command not recognized.");

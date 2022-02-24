@@ -199,7 +199,7 @@ impl Query {
   }
 
   pub fn ma_price(
-    &mut self,
+    &self,
     symbol: &str,
     interval: &str,
     ms: i64,
@@ -207,6 +207,12 @@ impl Query {
     exp: bool,
   ) -> Option<f32> {
     let query = format!("SELECT val FROM moving_averages WHERE symbol = '{}' AND INTERVAL = '{}' AND ms <= {} AND exp = {} AND len = {} ORDER BY ms DESC LIMIT 1",symbol, interval, ms, exp, len);
+    let rows = con().query(query.as_str(), &[]).unwrap();
+    rows.get(0).map(|c| c.get(0))
+  }
+
+  pub fn price(&self, open_time: i64) -> Option<f32> {
+    let query = format!("SELECT open FROM candles WHERE symbol = '{}' AND INTERVAL = '{}' AND open_time <= {} ORDER BY open_time DESC LIMIT 1", self.symbol, self.interval, open_time);
     let rows = con().query(query.as_str(), &[]).unwrap();
     rows.get(0).map(|c| c.get(0))
   }

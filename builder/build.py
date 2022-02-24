@@ -23,18 +23,16 @@ labels = []
 features = []
 
 symbol = sys.argv[1]
-interval = sys.argv[2]
-candles_forward = sys.argv[3]
 
 if os.path.exists('labels.npy'):
     labels = np.load('labels.npy')
     features = np.load('features.npy')
 else:
-    with os.scandir(os.path.join('csv', 'train', symbol, interval, candles_forward)) as folder:
+    with os.scandir(os.path.join('csv', 'train', symbol)) as folder:
         for csv in folder:
             print("Loading: " + str(int(file_index / num_files * 100)) + "%")
             # print("filename: " + csv.name)
-            label = float(csv.name.split(",")[1].split('.csv')[0])
+            label = float(csv.name.split('.csv')[0])
             # print("label: " + str(label))
             labels.append(label)
             csv_data = np.array(pd.read_csv(csv, header=None))
