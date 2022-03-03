@@ -10,11 +10,13 @@ use crate::prelude::*;
 //   - 4d of hourly
 //   - 2d of 15m
 
+#[derive(Clone)]
 pub struct MA {
   pub len: i32,
   pub interval: String,
   pub exp: bool,
 }
+#[derive(Clone)]
 pub struct CandleSegment {
   pub len: String,
   pub interval: String,
@@ -28,6 +30,7 @@ impl CandleSegment {
     }
   }
 }
+#[derive(Clone)]
 pub struct NormalizedData {
   open: f32,
   close: f32,
@@ -37,38 +40,42 @@ pub struct NormalizedData {
 }
 
 pub trait ExportData {
-  fn export(&self, path: &Path) -> Result<()>;
+  fn export(&self, file: &mut File, label: f32) -> Result<()>;
 }
 impl ExportData for Vec<NormalizedData> {
-  fn export(&self, path: &Path) -> Result<()> {
-    fs::create_dir_all(path.parent().unwrap())?;
-
-    let mut csv = File::create(path)?;
+  fn export(&self, file: &mut File, label: f32) -> Result<()> {
+    let mut result = vec![];
     for d in self {
       let ma: Vec<String> = d.ma.iter().map(|ma| ma.to_string()).collect();
-      writeln!(
-        &mut csv,
+
+      result.push(format!(
         "{},{},{},{},{}",
         d.open,
         d.close,
         d.high,
         d.low,
         ma.join(",")
-      )?;
+      ));
     }
+
+    write!(file, "{}", result.join(","))?;
+    let label = match label {
+      l if l > 0.02 => "pos",
+      l if l < -0.02 => "neg",
+      _ => "flt",
+    };
+    writeln!(file, ",{}", label)?;
 
     Ok(())
   }
 }
-
-const MA_MULT: f32 = 8.;
 
 pub fn normalize(
   symbol: &str,
   mut cursor: i64,
   segments: Vec<CandleSegment>,
   moving_averages: Vec<MA>,
-) -> Result<(f32, f32, Vec<NormalizedData>)> {
+) -> Result<Vec<NormalizedData>> {
   let mut data = vec![];
 
   // Gather the candle data
@@ -78,6 +85,11 @@ pub fn normalize(
     query.set_range((cursor - len)..cursor);
 
     let candles = API.save_candles(&mut query)?;
+    // todo: bad. Fix.
+    if candles.len() - 1 != query.num_candles() {
+      bail!("Mismatched candle num.");
+    }
+
     for candle in candles {
       let ma_prices: Vec<f32> = moving_averages
         .iter()
@@ -88,6 +100,8 @@ pub fn normalize(
           (val - candle.close) / candle.close
         })
         .collect();
+
+      assert_eq!(ma_prices.len(), moving_averages.len());
 
       data.push((candle, ma_prices))
     }
@@ -114,5 +128,5 @@ pub fn normalize(
     })
     .collect();
 
-  Ok((max, min, ncd))
+  Ok(ncd)
 }

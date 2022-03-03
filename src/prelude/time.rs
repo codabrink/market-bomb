@@ -60,17 +60,21 @@ impl AsMs for &str {
         let now = chrono::Utc::now();
         let n: u32 = caps["n"].parse().unwrap();
         let mut year = now.year() as u32;
-        let mut month = now.month();
+        let mut month = now.month() as i32;
         match &caps["unit"] {
           "y" => year -= n,
           "M" => {
-            year -= n / 12;
-            month -= n % 12;
+            month -= n as i32;
+            // math problem can fix this..later
+            while month <= 0 {
+              month += 12;
+              year -= 1;
+            }
           }
           _ => unreachable!(),
         }
         Utc
-          .ymd(year as i32, month, now.day())
+          .ymd(year as i32, month as u32, now.day())
           .and_hms(now.hour(), now.minute(), 0)
           .ms()
       }

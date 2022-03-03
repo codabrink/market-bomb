@@ -1,2 +1,2 @@
 #!/bin/bash
-pip install tensorflow pandas numpy matplotlib
+pip install wheel tensorflow pandas numpy matplotlib

@@ -1,5 +1,3 @@
-#![feature(thread_id_value)]
-
 #[macro_use]
 extern crate lazy_static;
 extern crate env_logger;

@@ -20,7 +20,7 @@ pub struct DbPool(Pool<PostgresConnectionManager<NoTls>>);
 pub type DbCon = PooledConnection<PostgresConnectionManager<NoTls>>;
 
 lazy_static! {
-  pub static ref POOL: RwLock<HashMap<u64, DbPool>> =
+  pub static ref POOL: RwLock<HashMap<usize, DbPool>> =
     RwLock::new(HashMap::new());
 }
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -91,7 +91,9 @@ impl PartialEq for QueryOpt {
   }
 }
 impl Hash for QueryOpt {
-  fn hash<H: Hasher>(&self, state: &mut H) { discriminant(self).hash(state); }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    discriminant(self).hash(state);
+  }
 }
 
 impl Query {
@@ -103,14 +105,20 @@ impl Query {
       options: HashMap::new(),
     }
   }
-  pub fn default() -> Self { Self::new("BTCUSDT", "15m") }
+  pub fn default() -> Self {
+    Self::new("BTCUSDT", "15m")
+  }
 
   pub fn get(&self, opt: &QueryOpt) -> Option<&QueryOpt> {
     let s: &str = opt.into();
     self.options.get(s)
   }
-  pub fn symbol(&self) -> &str { &self.symbol }
-  pub fn interval(&self) -> &str { &self.interval }
+  pub fn symbol(&self) -> &str {
+    &self.symbol
+  }
+  pub fn interval(&self) -> &str {
+    &self.interval
+  }
 
   pub fn set(&mut self, opt: QueryOpt) {
     // round time values to interval
@@ -137,7 +145,9 @@ impl Query {
     }
   }
 
-  pub fn is_empty(&self) -> bool { self.num_candles() == 0 }
+  pub fn is_empty(&self) -> bool {
+    self.num_candles() == 0
+  }
 
   pub fn num_candles(&self) -> usize {
     match (self.get(&Start(0)), self.get(&End(0))) {
@@ -148,7 +158,9 @@ impl Query {
     }
   }
 
-  pub fn clear(&mut self) { self.options.clear(); }
+  pub fn clear(&mut self) {
+    self.options.clear();
+  }
 
   pub fn remove(&mut self, opt: &QueryOpt) {
     let k: &str = opt.into();
@@ -184,7 +196,9 @@ impl Query {
     None
   }
 
-  pub fn step(&self) -> i64 { self.interval.ms() }
+  pub fn step(&self) -> i64 {
+    self.interval.ms()
+  }
   pub fn len(&self) -> Option<i32> {
     if let Some(Len(v)) = self.get(&Len(0)) {
       return Some(*v);
@@ -514,8 +528,8 @@ fn init_pool() -> DbPool {
   DbPool(Pool::new(manager).unwrap())
 }
 
-pub fn thread_id() -> u64 {
-  std::primitive::u64::from(thread::current().id().as_u64())
+pub fn thread_id() -> usize {
+  thread_id::get()
 }
 
 pub fn con() -> DbCon {
@@ -541,7 +555,9 @@ pub fn database_exists() -> bool {
     .unwrap();
   String::from_utf8_lossy(&a.stdout).trim().eq("1")
 }
-pub fn reset() { con().batch_execute("DELETE FROM candles;").unwrap(); }
+pub fn reset() {
+  con().batch_execute("DELETE FROM candles;").unwrap();
+}
 pub fn create_db() -> Result<()> {
   #[cfg(not(test))]
   log!("Creating database...");

@@ -10,6 +10,9 @@ import pandas as pd
 import numpy as np
 import shutil
 
+np.random.seed(314)
+tf.random.set_seed(314)
+# random.seed(314)
 
 # argv usage: [symbol, interval, numcandles]
 
@@ -19,60 +22,89 @@ num_files = sum([len(files)
                  for r, d, files in os.walk("./csv")])
 file_index = 0
 
-labels = []
-features = []
-
 symbol = sys.argv[1]
 
-if os.path.exists('labels.npy'):
-    labels = np.load('labels.npy')
-    features = np.load('features.npy')
-else:
-    with os.scandir(os.path.join('csv', 'train', symbol)) as folder:
-        for csv in folder:
-            print("Loading: " + str(int(file_index / num_files * 100)) + "%")
-            # print("filename: " + csv.name)
-            label = float(csv.name.split('.csv')[0])
-            # print("label: " + str(label))
-            labels.append(label)
-            csv_data = np.array(pd.read_csv(csv, header=None))
-            csv_data = csv_data.ravel()
-            csv_data = csv_data[
-                np.logical_not(np.isnan(csv_data))]
-            features.append(csv_data)
-            file_index += 1
-    np.save('labels', labels)
-    np.save('features', features)
+train_features = pd.read_csv(os.path.join('csv', symbol, 'train.csv'))
+test_features = pd.read_csv(os.path.join('csv', symbol, 'test.csv'))
 
-labels = np.asarray(labels).astype('float32')
-features = np.asarray(features).astype('float32')
+train_labels = train_features.pop("pct_change")
+test_labels = test_features.pop("pct_change")
 
-print(features)
-assert not np.any(np.isnan(features))
-assert not np.any(np.isnan(labels))
+for i, v in enumerate(train_labels):
+    if v == "pos":
+        train_labels[i] = 0.99
+    elif v == "neg":
+        train_labels[i] = 0.
+    else:
+        train_labels[i] = .5
+
+for i, v in enumerate(test_labels):
+    if v == "pos":
+        test_labels[i] = 0.99
+    elif v == "neg":
+        test_labels[i] = 0.
+    else:
+        test_labels[i] = .5
+
+train_labels = np.asarray(train_labels).astype('float32')
+test_labels = np.asarray(test_labels).astype('float32')
+
+
+print(test_labels)
 
 print("Building model.")
+normalize = layers.Normalization()
+
 # model = tf.keras.
 model = tf.keras.Sequential([
-    layers.Dense(128, activation='relu'),
-    layers.Dense(64),
-    layers.Dense(128),
-    layers.Dense(32, activation='relu'),
-    layers.Dense(1, activation='linear')
+    # layers.Normalization(),
+    tf.keras.Input(shape=(None, 2567)),
+    layers.LSTM(256, return_sequences=True),
+    layers.Dropout(0.3),
+    layers.LSTM(256, return_sequences=True),
+    layers.Dropout(0.3),
+    layers.LSTM(256, return_sequences=False),
+    layers.Dropout(0.3),
+    layers.Dense(1, activation="linear")
 ])
 
-opt = tf.keras.optimizers.SGD(
-    learning_rate=0.01, momentum=0.0, nesterov=False, name='SGD'
-)
+# opt = tf.keras.optimizers.SGD(
+    # learning_rate=0.01, momentum=0.0, nesterov=False, name='SGD'
+# )
+# opt = optimizer = tf.optimizers.Adam()
+
 
 print("Compiling model.")
-model.compile(loss=tf.losses.MeanSquaredError())
-# optimizer=opt)
+model.compile(
+    loss="mean_absolute_error",
+    # loss="mse", 
+    optimizer="rmsprop",
+    metrics=["mean_absolute_error"]
+)
 
 print("Fitting model.")
-model.fit(features, labels, epochs=170)
+model.fit(
+    train_features,
+    train_labels,
+    batch_size=10,
+    epochs=10
+)
+## validation_data=(test_features, test_labels)
 
-model_path = os.path.join('models', symbol, interval, candles_forward)
-shutil.rmtree(model_path, ignore_errors=True)
-os.makedirs(model_path)
-model.save(os.path.join(model_path, 'model'))
+for i in range(20):
+    test = tf.constant([test_features.iloc[i]])
+    print(test)
+    prediction = model.predict(test)
+    print(prediction)
+    print("Result: " + str(test_labels[i]))
+# print(test_labels)
+
+# evaluation = model.evaluate(test_features, test_labels)
+# print(evaluation)
+# print(f"BinaryCrossentropyloss: {evaluation[0]}")
+# print(f"Accuracy: {evaluation[1]}")
+
+# model_path = os.path.join('models', symbol, interval, candles_forward)
+# shutil.rmtree(model_path, ignore_errors=True)
+# os.makedirs(model_path)
+# model.save(os.path.join(model_path, 'model'))

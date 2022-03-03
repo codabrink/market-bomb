@@ -5,7 +5,7 @@ name = "market_bomb"
 version = "0.1.0"
 
 [dependencies]
-actix-web = "3"
+actix-web = "4"
 crossbeam = "0.8"
 bencher = "0.1.5"
 chrono = { version = "0.4.19", features = ["serde"] }
@@ -26,3 +26,4 @@ anyhow = "1"
 tui = "0.17"
 termion = "1.5"
 hashbrown = "0.12"
+thread-id = "4"
