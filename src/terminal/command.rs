@@ -70,25 +70,7 @@ pub fn parse_command(cmd: String) -> Result<()> {
 fn export(start: i64, end: i64, file: &mut File) -> Result<()> {
   let query = Query::new("BTCUSDT", "1h");
   let mut header = false;
-  let candle_segments = vec![
-    CandleSegment::new("52w", "1w"),
-    CandleSegment::new("6w", "1d"),
-    CandleSegment::new("1w", "4h"),
-    CandleSegment::new("4d", "1h"),
-    CandleSegment::new("2d", "15m"),
-  ];
-  let moving_averages = vec![
-    MA {
-      interval: "4h".to_string(),
-      len: 200,
-      exp: true,
-    },
-    MA {
-      interval: "1d".to_string(),
-      len: 50,
-      exp: false,
-    },
-  ];
+  let strat1 = "52w:1w,6w:1d,1w:4h,4d:1h,2d:15m;4h:200:true,1d:50:false";
 
   for ms in (start..end).step_by("2h".ms() as usize) {
     match normalize(
