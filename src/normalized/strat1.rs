@@ -18,15 +18,29 @@ pub struct Row {
   ma: Vec<f32>,
 }
 
+trait WriteableRows {
+  fn write(&self, file: &mut File) -> Result<()>;
+}
+impl WriteableRows for Vec<Row> {
+  fn write(&self, file: &mut File) -> Result<()> {
+    for row in self {
+      let ma = row
+        .ma
+        .iter()
+        .map(|ma| ma.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+      writeln!(file, "{},{},{},{}", row.dp, row.wm, row.wpp, ma);
+    }
+    Ok(())
+  }
+}
+
 // data exported from here is not normalized
-pub fn export(strat: &str, symbol: &str) -> Result<Vec<Row>> {
+pub fn export(strat: &str, symbol: &str) -> Result<()> {
   let start = (CONFIG.history_start as i64 + strat.strat_len()).round("1d");
   let end = now().round("1d");
   let train_end = (((end as f64 - start as f64) * 0.75) as i64).round("1d");
-
-  let mut frames = strat.load(symbol, now())?;
-  let mut result = convert(&mut frames)?;
-  normalize(&mut result)?;
 
   let train_path =
     PathBuf::from(format!("builder/csv/{}/strat1/train", symbol));
@@ -34,7 +48,15 @@ pub fn export(strat: &str, symbol: &str) -> Result<Vec<Row>> {
   let test_path = train_path.parent().unwrap().join("test");
   fs::create_dir_all(&test_path);
 
-  Ok(result)
+  for cursor in start..train_end {
+    let mut frames = strat.load(symbol, cursor)?;
+    let mut result = convert(&mut frames)?;
+    normalize(&mut result)?;
+
+    let p = train_path.join(format!("{}.csv", cursor));
+  }
+
+  Ok(())
 }
 
 fn convert(frames: &mut Vec<Frame>) -> Result<Vec<Row>> {
