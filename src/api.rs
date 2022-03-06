@@ -23,7 +23,7 @@ impl Api {
       return query.query_candles();
     }
 
-    while !missing.is_empty() && tries < 3 {
+    while !missing.is_empty() && tries < 2 {
       log!(
         "Fetching {} candles.",
         missing.num_candles(query.interval())

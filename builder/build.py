@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 import shutil
 
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 # argv usage: [symbol, interval, numcandles]
 
@@ -51,7 +53,6 @@ file_index = 0
 with os.scandir(os.path.join('csv', symbol, strat, 'test')) as folder:
     for csv in folder:
         print("Loading: " + str(int(file_index / num_files * 100)) + "%")
-        files.append(csv.name)
         csv_data = np.array(pd.read_csv(csv, header=None))
         label = csv_data[-1][0]
         csv_data = np.delete(csv_data, len(csv_data) - 1, 0)
@@ -62,6 +63,8 @@ with os.scandir(os.path.join('csv', symbol, strat, 'test')) as folder:
 
 labels = np.asarray(labels).astype('float32')
 features = np.asarray(features).astype('float32')
+test_labels = np.asarray(test_labels).astype('float32')
+test_features = np.asarray(test_features).astype('float32')
 
 # print(features[0])
 # for i in range(len(features)):
@@ -73,6 +76,8 @@ features = np.asarray(features).astype('float32')
     
 assert not np.any(np.isnan(features))
 assert not np.any(np.isnan(labels))
+assert not np.any(np.isnan(test_features))
+assert not np.any(np.isnan(test_labels))
 
 print("Building model.")
 dropout = 0.3
@@ -109,11 +114,8 @@ model.compile(
 )
 
 print("Fitting model.")
-model.fit(features, labels, epochs=170)
+model.fit(features, labels, epochs=200)
 
 model.evaluate(test_features, test_labels, verbose=2)
 
-# model_path = os.path.join('models', symbol, interval, candles_forward)
-# shutil.rmtree(model_path, ignore_errors=True)
-# os.makedirs(model_path)
-# model.save(os.path.join(model_path, 'model'))
+model.save(os.path.join('saved_model/my_model'))

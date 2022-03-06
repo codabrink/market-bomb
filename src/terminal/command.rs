@@ -41,11 +41,15 @@ pub fn parse_command(cmd: String) -> Result<()> {
       let after_count = query.count_candles()?;
       log!("Downloaded {} candles.", after_count - before_count);
     }
+    "predict" => {
+      recognized();
+      let data1 = "52w:1w,6w:1d,1w:4h,4d:1h,2d:15m;4h:200:true,1d:50:false";
+    }
     "build_csv" => {
       recognized();
 
       let data1 = "52w:1w,6w:1d,1w:4h,4d:1h,2d:15m;4h:200:true,1d:50:false";
-      normalized::strat1::export(data1, "BTCUSDT")?;
+      normalized::strat1::export_all(data1, "BTCUSDT")?;
     }
     _ => {
       log!("/yB Command not recognized.");

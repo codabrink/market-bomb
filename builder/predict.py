@@ -12,17 +12,11 @@ import numpy as np
 
 # argv usage: [symbol, interval, numcandles]
 symbol = sys.argv[1]
-interval = sys.argv[2]
-candles_forward = sys.argv[3]
+strat = sys.argv[2]
 
-model_path = os.path.join(
-    'builder', 'models', symbol, interval, candles_forward, 'model')
+model_path = os.path.join('builder', 'models', symbol, strat)
 model = load_model(model_path)
-csv_data = np.array(pd.read_csv(
-    "builder/csv/predict/predict.csv", header=None))
-csv_data = csv_data.ravel()
-csv_data = csv_data[
-    np.logical_not(np.isnan(csv_data))]
+csv_data = np.array(pd.read_csv("builder/csv/predict/predict.csv", header=None))
 
 csv_data = np.array([csv_data]).astype("float32")
 predictions = model.predict(csv_data)
