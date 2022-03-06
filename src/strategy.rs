@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 pub fn build_cache(symbol: &str) -> Result<()> {
+  log!("Building cache.");
   let config = Config::load();
   let mut q = Query::new(symbol, "1d");
 
@@ -17,8 +18,10 @@ pub fn build_cache(symbol: &str) -> Result<()> {
   q.set_all(vec![Start(history_end - "1y".ms()), End(history_end)]);
   API.save_candles(&mut q)?;
 
-  MovingAverage::calculate_ema(symbol, "4h", 200)?;
-  MovingAverage::calculate_ma(symbol, "1d", 50)?;
+  // MovingAverage::calculate_ema(symbol, "4h", 200)?;
+  // MovingAverage::calculate_ma(symbol, "1d", 50)?;
+
+  log!("Cache built.");
 
   Ok(())
 }

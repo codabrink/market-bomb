@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-mod strat1;
+pub mod strat1;
 
 // Things to track...
 // 1. Distance from MA/EMA
@@ -35,14 +35,6 @@ pub struct CandlesChunkDesc {
   pub interval: String,
 }
 
-impl CandlesChunkDesc {
-  pub fn new(len: &str, interval: &str) -> Self {
-    Self {
-      len: len.to_string(),
-      interval: interval.to_string(),
-    }
-  }
-}
 #[derive(Clone)]
 pub struct Frame {
   ms: i64,
@@ -60,27 +52,38 @@ pub trait StratStr<'a> {
 }
 impl<'a> StratStr<'a> for &'a str {
   fn to_components(&self) -> (Vec<&str>, Vec<MAD>) {
-    let [candle_strat, ma_strat] = (self.split(";").collect::<Vec<&str>>())[..];
-    let ma_strats: Vec<&str> = ma_strat.split(",").collect();
-    let moving_averages: Vec<MAD> =
-      ma_strats.into_iter().map(|ma| ma.into()).collect();
-    let candle_strats: Vec<&str> = candle_strat.split(",").collect();
+    if let [candle_strat, ma_strat] =
+      (self.split(";").collect::<Vec<&str>>())[..]
+    {
+      let ma_strats: Vec<&str> = ma_strat.split(",").collect();
+      let moving_averages: Vec<MAD> =
+        ma_strats.into_iter().map(|ma| ma.into()).collect();
+      let candle_strats: Vec<&str> = candle_strat.split(",").collect();
 
-    (candle_strats, moving_averages)
+      (candle_strats, moving_averages)
+    } else {
+      panic!("Strat str is malformed");
+    }
   }
   fn strat_len(&self) -> i64 {
     let (candle_strats, _) = self.to_components();
     candle_strats.into_iter().fold(0, |acc, s| {
-      let [len, interval] = (s.split(":").collect::<Vec<&str>>())[..];
-      acc + len.ms() * interval.ms()
+      match (s.split(":").collect::<Vec<&str>>())[..] {
+        [len, _] => acc + len.ms(),
+        _ => unreachable!(),
+      }
     })
   }
-  fn load(&self, symbol: &str, mut cursor: i64) -> Result<Vec<Frame>> {
+  fn load(&self, symbol: &str, cursor: i64) -> Result<Vec<Frame>> {
     let mut frames = vec![];
     let (candle_strats, moving_averages) = self.to_components();
 
     for strat in candle_strats {
-      let [len, interval] = (strat.split(":").collect::<Vec<&str>>())[..];
+      let [len, interval] = match (strat.split(":").collect::<Vec<&str>>())[..]
+      {
+        [a, b] => [a, b],
+        _ => bail!("Strat str is malformed."),
+      };
       let mut query = Query::new(symbol, interval);
       let len = len.ms();
 
@@ -88,16 +91,17 @@ impl<'a> StratStr<'a> for &'a str {
       let candles = API.save_candles(&mut query)?;
 
       // TODO: Figure out why this is so
-      assert_eq!(candles.len() - 1, query.num_candles());
+      if candles.len() - 1 != query.num_candles() {
+        bail!("Data is no good.");
+      }
 
       for candle in candles {
         let ma_prices: Vec<f32> = moving_averages
           .iter()
           .map(|ma| {
-            let val = query
+            query
               .ma_price(symbol, &ma.interval, candle.open_time, ma.len, ma.exp)
-              .expect("Do not have MA price.");
-            (val - candle.close) / candle.close
+              .expect("Do not have MA price.")
           })
           .collect();
 
@@ -147,115 +151,4 @@ impl ExportData for Vec<Frame> {
 
     Ok(())
   }
-}
-
-fn collect(
-  symbol: &str,
-  mut cursor: i64,
-  chunks: Vec<CandlesChunkDesc>,
-  moving_averages: Vec<MAD>,
-) -> Result<Vec<Frame>> {
-  let mut frames = vec![];
-
-  // Gather the candle data
-  for chunk in chunks {
-    let mut query = Query::new(symbol, &chunk.interval);
-    let len = chunk.len.ms();
-    query.set_range((cursor - len)..cursor);
-
-    let candles = API.save_candles(&mut query)?;
-    // todo: bad. Fix.
-    if candles.len() - 1 != query.num_candles() {
-      bail!("Mismatched candle num.");
-    }
-
-    for candle in candles {
-      let ma_prices: Vec<f32> = moving_averages
-        .iter()
-        .map(|ma| {
-          let val = query
-            .ma_price(symbol, &ma.interval, candle.open_time, ma.len, ma.exp)
-            .expect("Do not have MA price.");
-          (val - candle.close) / candle.close
-        })
-        .collect();
-
-      assert_eq!(ma_prices.len(), moving_averages.len());
-
-      frames.push(Frame {
-        ms: candle.open_time,
-        open: candle.open,
-        close: candle.close,
-        high: candle.high,
-        low: candle.low,
-        ma: ma_prices,
-      });
-    }
-
-    cursor -= len;
-  }
-
-  Ok(frames)
-}
-
-pub fn normalize(
-  symbol: &str,
-  mut cursor: i64,
-  segments: Vec<CandlesChunkDesc>,
-  moving_averages: Vec<MAD>,
-) -> Result<Vec<Frame>> {
-  let mut data = vec![];
-
-  // Gather the candle data
-  for segment in segments {
-    let mut query = Query::new(symbol, &segment.interval);
-    let len = segment.len.ms();
-    query.set_range((cursor - len)..cursor);
-
-    let candles = API.save_candles(&mut query)?;
-    // todo: bad. Fix.
-    if candles.len() - 1 != query.num_candles() {
-      bail!("Mismatched candle num.");
-    }
-
-    for candle in candles {
-      let ma_prices: Vec<f32> = moving_averages
-        .iter()
-        .map(|ma| {
-          let val = query
-            .ma_price(symbol, &ma.interval, candle.open_time, ma.len, ma.exp)
-            .expect("Do not have MA price.");
-          (val - candle.close) / candle.close
-        })
-        .collect();
-
-      assert_eq!(ma_prices.len(), moving_averages.len());
-
-      data.push((candle, ma_prices))
-    }
-
-    cursor -= len;
-  }
-
-  let (c, _) = &data[0];
-  let (max, min) = data.iter().fold((c.high, c.low), |(max, min), (c, _)| {
-    (max.max(c.high), min.min(c.low))
-  });
-
-  // get the range of values
-  let r = max - min;
-  // normalize the data
-  let ncd = data
-    .into_iter()
-    .map(|(c, ma)| Frame {
-      ms: c.open_time,
-      open: (c.open - min) / r,
-      close: (c.close - min) / r,
-      high: (c.high - min) / r,
-      low: (c.low - min) / r,
-      ma,
-    })
-    .collect();
-
-  Ok(ncd)
 }

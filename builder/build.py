@@ -10,9 +10,6 @@ import pandas as pd
 import numpy as np
 import shutil
 
-np.random.seed(314)
-tf.random.set_seed(314)
-# random.seed(314)
 
 # argv usage: [symbol, interval, numcandles]
 
@@ -22,87 +19,78 @@ num_files = sum([len(files)
                  for r, d, files in os.walk("./csv")])
 file_index = 0
 
+labels = []
+features = []
+files = []
+
 symbol = sys.argv[1]
+strat = sys.argv[2]
 
-train_features = pd.read_csv(os.path.join('csv', symbol, 'train.csv'))
-test_features = pd.read_csv(os.path.join('csv', symbol, 'test.csv'))
+if os.path.exists('labels.npy'):
+    labels = np.load('labels.npy')
+    features = np.load('features.npy')
+else:
+    with os.scandir(os.path.join('csv', symbol, strat, 'train')) as folder:
+        for csv in folder:
+            print("Loading: " + str(int(file_index / num_files * 100)) + "%")
+            files.append(csv.name)
+            csv_data = np.array(pd.read_csv(csv, header=None))
+            label = csv_data[-1][0]
+            csv_data = np.delete(csv_data, len(csv_data) - 1, 0)
+            # csv_data = csv_data.ravel()
+            features.append(np.array(csv_data))
+            labels.append(label)
+            file_index += 1
+    np.save('labels', labels)
+    np.save('features', features)
 
-train_labels = train_features.pop("pct_change")
-test_labels = test_features.pop("pct_change")
+labels = np.asarray(labels).astype('float32')
+features = np.asarray(features).astype('float32')
 
-for i, v in enumerate(train_labels):
-    if v == "pos":
-        train_labels[i] = 0.99
-    elif v == "neg":
-        train_labels[i] = 0.
-    else:
-        train_labels[i] = .5
-
-for i, v in enumerate(test_labels):
-    if v == "pos":
-        test_labels[i] = 0.99
-    elif v == "neg":
-        test_labels[i] = 0.
-    else:
-        test_labels[i] = .5
-
-train_labels = np.asarray(train_labels).astype('float32')
-test_labels = np.asarray(test_labels).astype('float32')
-
-
-print(test_labels)
+# print(features[0])
+for i in range(len(features)):
+    print("Checking " + files[i])
+    for ii in range(len(features[i])):
+        print("Checking row " + str(ii))
+        assert not np.any(np.isnan(features[i][ii]))
+    print(str(files[i]) + " is okay")
+    # assert not np.any(np.isnan(labels))
 
 print("Building model.")
-normalize = layers.Normalization()
+dropout = 0.3
 
-# model = tf.keras.
-model = tf.keras.Sequential([
-    # layers.Normalization(),
-    tf.keras.Input(shape=(None, 2567)),
-    layers.LSTM(256, return_sequences=True),
-    layers.Dropout(0.3),
-    layers.LSTM(256, return_sequences=True),
-    layers.Dropout(0.3),
-    layers.LSTM(256, return_sequences=False),
-    layers.Dropout(0.3),
-    layers.Dense(1, activation="linear")
-])
+model = tf.keras.Sequential()
+model.add(tf.keras.Input(shape=(None, 5)))
+model.add(
+    layers.Bidirectional(
+        layers.LSTM(256, return_sequences=True, activation='tanh')
+    )
+)
+model.add(layers.Dropout(dropout))
+model.add(
+    layers.Bidirectional(
+        layers.LSTM(256, activation='tanh')
+    )
+)
+# model.add(layers.LSTM(256, activation='tanh'))
+model.add(layers.Dropout(dropout))
+model.add(layers.Dense(1, activation="linear"))
 
-# opt = tf.keras.optimizers.SGD(
-    # learning_rate=0.01, momentum=0.0, nesterov=False, name='SGD'
-# )
-# opt = optimizer = tf.optimizers.Adam()
 
+opt = tf.keras.optimizers.SGD(
+    learning_rate=0.01, momentum=0.0, nesterov=False, name='SGD'
+)
 
 print("Compiling model.")
 model.compile(
     loss="mean_absolute_error",
-    # loss="mse", 
-    optimizer="rmsprop",
+    optimizer="adam",
     metrics=["mean_absolute_error"]
+    # metrics=["accuracy"]
 )
 
 print("Fitting model.")
-model.fit(
-    train_features,
-    train_labels,
-    batch_size=10,
-    epochs=10
-)
-## validation_data=(test_features, test_labels)
-
-for i in range(20):
-    test = tf.constant([test_features.iloc[i]])
-    print(test)
-    prediction = model.predict(test)
-    print(prediction)
-    print("Result: " + str(test_labels[i]))
-# print(test_labels)
-
-# evaluation = model.evaluate(test_features, test_labels)
-# print(evaluation)
-# print(f"BinaryCrossentropyloss: {evaluation[0]}")
-# print(f"Accuracy: {evaluation[1]}")
+model.fit(features, labels, epochs=170)
 
 # model_path = os.path.join('models', symbol, interval, candles_forward)
 # shutil.rmtree(model_path, ignore_errors=True)
