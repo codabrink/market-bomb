@@ -46,6 +46,12 @@ pub fn candle_counting_thread() {
       let v = r[0].get::<usize, i64>(0);
       CANDLES.store(v as usize, Relaxed);
     }
+    if let Ok(r) =
+      con().query("select count(*) from candles where derived = true;", &[])
+    {
+      let v = r[0].get::<usize, i64>(0);
+      DERIVED_CANDLES.store(v as usize, Relaxed);
+    }
     thread::sleep(Duration::from_secs(2));
   });
 }
@@ -359,8 +365,6 @@ impl Query {
     Ok(result)
   }
   pub fn copy_in_candles(&mut self, out: String) -> Result<()> {
-    use std::path::Path;
-
     fs::create_dir_all("/tmp/pg_copy")?;
     let header = "id, symbol, interval, open_time, open, high, low, close, volume, close_time, bottom_domain, top_domain, fuzzy_domain, derived";
     let mut _out = String::from(format!("{}\n", header));
@@ -465,7 +469,7 @@ UNION ALL
   }
 
   pub fn linear_regression(&mut self) -> Result<()> {
-    let num_derived = DERIVED_CANDLES.load(Relaxed);
+    con().batch_execute(format!("DELETE FROM candles WHERE symbol = '{}' AND INTERVAL = '{}' AND derived = true", self.symbol, self.interval).as_str())?;
 
     let missing = self.missing_candles_ungrouped()?;
     log!(
@@ -490,17 +494,13 @@ UNION ALL
           volume: left.volume * dl + right.volume * dr,
           open_time,
           close_time: open_time + self.step() - 1,
+          derived: true,
           ..Default::default()
         };
 
         self.insert_candle(&candle)?;
-        DERIVED_CANDLES.fetch_add(1, Relaxed);
       }
     }
-    log!(
-      "Derived {} candles.",
-      DERIVED_CANDLES.load(Relaxed) - num_derived
-    );
 
     Ok(())
   }

@@ -29,6 +29,7 @@ CREATE TABLE candles (
   source        TEXT NOT NULL,
   primary key   (open_time, interval, symbol, source)
 );
+CREATE INDEX derived_idx ON candles (derived);
 CREATE TABLE import_candles AS TABLE candles WITH NO DATA;",
   )?;
   Ok(())

@@ -10,7 +10,6 @@ crossbeam = "0.8"
 bencher = "0.1.5"
 chrono = { version = "0.4.19", features = ["serde"] }
 env_logger = "0.9"
-indicatif = "0.16"
 lazy_static = "1.4.0"
 num_cpus = "1.13"
 postgres = "0.19"

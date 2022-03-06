@@ -41,6 +41,9 @@ macro_rules! log {
     crate::terminal::log(format!($($arg)*));
   };
 }
+pub fn pb(label: impl AsRef<str>, pct: f64) {
+  let _ = terminal::PB.0.send((label.as_ref().to_string(), pct));
+}
 
 pub trait Candles {
   fn step(&self) -> i64;

@@ -29,27 +29,38 @@ impl Api {
         missing.num_candles(query.interval())
       );
 
-      for range in missing {
+      let missing_pb_label = "Missing candles...";
+      pb(missing_pb_label, 0.);
+
+      for range_index in 0..missing.len() {
+        let range = &missing[range_index];
+        pb(missing_pb_label, range_index as f64 / missing.len() as f64);
+
         let mut subquery = query.clone();
         // split the range up so we don't get rate-limited
         subquery.set_all(vec![Start(range.start), End(range.end)]);
-        log!("missing: {:?}", range);
+        log!(
+          "missing: {} to {}",
+          range.start.to_human(),
+          range.end.to_human()
+        );
         let candles = match self {
           Self::Binance(b) => b.fetch_candles(&subquery),
         }?;
 
         log!("Api returned {} candles.", candles.len());
-        let pb_label = "Inserting candles...".to_owned();
-        let _ = terminal::PB.0.send((pb_label.clone(), 0.));
+        let pb_label = "Inserting candles...";
+        pb(pb_label, 0.);
         let (mut i, num_candles) = (0f64, candles.len() as f64);
 
         for candle in candles {
-          let _ = terminal::PB.0.send((pb_label.clone(), i / num_candles));
+          pb(pb_label, i / num_candles);
           query.insert_candle(&candle)?;
           i += 1.;
         }
-        let _ = terminal::PB.0.send((pb_label.clone(), -1.));
+        pb(pb_label, -1.);
       }
+      pb(missing_pb_label, -1.);
 
       tries += 1;
       missing = query.missing_candles()?;

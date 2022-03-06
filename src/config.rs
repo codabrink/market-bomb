@@ -45,7 +45,7 @@ impl ::std::default::Default for Config {
         predict_candles_forward: 32,
       },
       strong_points: StrongPointsConfig { min_domain: 4 },
-      history_start: 365 * 5, // 365 * 4
+      history_start: 365 * 4, // 365 * 4
       history_end: 0,
     }
   }
