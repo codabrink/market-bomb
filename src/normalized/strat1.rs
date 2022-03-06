@@ -38,8 +38,29 @@ impl WriteableRows for Vec<Row> {
   }
 }
 
+pub fn export_at(
+  strat: &str,
+  symbol: &str,
+  cursor: i64,
+  file: &mut File,
+) -> Result<()> {
+  let frames = strat.load(symbol, cursor)?;
+  let mut result = convert(&frames)?;
+  normalize(&mut result)?;
+
+  let q = Query::new(symbol, "15m");
+  let label = q.price(cursor + "8h".ms()).expect("Could not get price.");
+
+  let close = frames.last().unwrap().close;
+  let label = (label - close) / close;
+
+  result.write(file, label)?;
+
+  Ok(())
+}
+
 // data exported from here is not normalized
-pub fn export(strat: &str, symbol: &str) -> Result<()> {
+pub fn export_all(strat: &str, symbol: &str) -> Result<()> {
   let start = (now() - format!("{}d", CONFIG.history_start).ms()
     + strat.strat_len())
   .round("1d");

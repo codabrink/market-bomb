@@ -77,6 +77,7 @@ impl<'a> StratStr<'a> for &'a str {
   fn load(&self, symbol: &str, cursor: i64) -> Result<Vec<Frame>> {
     let mut frames = vec![];
     let (candle_strats, moving_averages) = self.to_components();
+    let cursor = cursor.round("15m");
 
     for strat in candle_strats {
       let [len, interval] = match (strat.split(":").collect::<Vec<&str>>())[..]
