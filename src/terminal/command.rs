@@ -45,8 +45,9 @@ pub fn parse_command(cmd: String) -> Result<()> {
       recognized();
       let data1 = "52w:1w,6w:1d,1w:4h,4d:1h,2d:15m;4h:200:true,1d:50:false";
 
-      let mut file = File::open("predict.csv")?;
-      normalized::strat1::export_at(data1, "BTCUSDT", now(), &mut file)?;
+      fs::remove_file("predict.csv");
+      let mut file = File::create("predict.csv")?;
+      normalized::strat1::export_at(data1, "BTCUSDT", "1h".ago(), &mut file)?;
     }
     "build_csv" => {
       recognized();
