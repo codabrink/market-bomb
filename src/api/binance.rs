@@ -1,12 +1,14 @@
 use super::*;
-use crate::{prelude::*, Candle};
+use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 
 const CANDLE_LIMIT: i64 = 500;
 
 pub struct Binance {}
 impl ApiTrait for Binance {
-  fn new() -> Api { Api::Binance(Self {}) }
+  fn new() -> Api {
+    Api::Binance(Self {})
+  }
   fn fetch_candles(&self, query: &Query) -> Result<Vec<Candle>> {
     let step = query.step();
     let fetch_step = (CANDLE_LIMIT * step) as usize;

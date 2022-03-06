@@ -1,4 +1,4 @@
-use crate::{prelude::*, CONFIG};
+use crate::prelude::*;
 use serde::Serialize;
 
 use CandlePos::*;
