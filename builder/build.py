@@ -23,10 +23,13 @@ labels = []
 features = []
 files = []
 
+test_labels = []
+test_features = []
+
 symbol = sys.argv[1]
 strat = sys.argv[2]
 
-if os.path.exists('labels.npy'):
+if False: #os.path.exists('labels.npy'):
     labels = np.load('labels.npy')
     features = np.load('features.npy')
 else:
@@ -44,17 +47,32 @@ else:
     np.save('labels', labels)
     np.save('features', features)
 
+file_index = 0
+with os.scandir(os.path.join('csv', symbol, strat, 'test')) as folder:
+    for csv in folder:
+        print("Loading: " + str(int(file_index / num_files * 100)) + "%")
+        files.append(csv.name)
+        csv_data = np.array(pd.read_csv(csv, header=None))
+        label = csv_data[-1][0]
+        csv_data = np.delete(csv_data, len(csv_data) - 1, 0)
+        # csv_data = csv_data.ravel()
+        test_features.append(np.array(csv_data))
+        test_labels.append(label)
+        file_index += 1
+
 labels = np.asarray(labels).astype('float32')
 features = np.asarray(features).astype('float32')
 
 # print(features[0])
-for i in range(len(features)):
-    print("Checking " + files[i])
-    for ii in range(len(features[i])):
-        print("Checking row " + str(ii))
-        assert not np.any(np.isnan(features[i][ii]))
-    print(str(files[i]) + " is okay")
-    # assert not np.any(np.isnan(labels))
+# for i in range(len(features)):
+    # print("Checking " + files[i])
+    # for ii in range(len(features[i])):
+        # print("Checking row " + str(ii))
+        # assert not np.any(np.isnan(features[i][ii]))
+    # print(str(files[i]) + " is okay")
+    
+assert not np.any(np.isnan(features))
+assert not np.any(np.isnan(labels))
 
 print("Building model.")
 dropout = 0.3
@@ -84,13 +102,16 @@ opt = tf.keras.optimizers.SGD(
 print("Compiling model.")
 model.compile(
     loss="mean_absolute_error",
-    optimizer="adam",
+    # optimizer="adam",
+    optimizer="rmsprop",
     metrics=["mean_absolute_error"]
     # metrics=["accuracy"]
 )
 
 print("Fitting model.")
 model.fit(features, labels, epochs=170)
+
+model.evaluate(test_features, test_labels, verbose=2)
 
 # model_path = os.path.join('models', symbol, interval, candles_forward)
 # shutil.rmtree(model_path, ignore_errors=True)

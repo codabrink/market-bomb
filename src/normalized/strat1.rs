@@ -63,7 +63,7 @@ pub fn export(strat: &str, symbol: &str) -> Result<()> {
 
   let pb_label = "Exporting train CSV...".to_string();
   let _ = terminal::PB.0.send((pb_label.clone(), 0.));
-  for cursor in (start..train_end).step_by("1w".ms() as usize) {
+  for cursor in (start..train_end).step_by("1d".ms() as usize) {
     let pct = (cursor - start) as f64 / (train_end - start) as f64;
     let _ = terminal::PB.0.send((pb_label.clone(), pct));
 
@@ -92,7 +92,7 @@ pub fn export(strat: &str, symbol: &str) -> Result<()> {
 
   let pb_label = "Exporting test CSV...".to_string();
   let _ = terminal::PB.0.send((pb_label.clone(), 0.));
-  for cursor in (train_end..end).step_by("1w".ms() as usize) {
+  for cursor in (train_end..end).step_by("1d".ms() as usize) {
     let pct = (cursor - train_end) as f64 / (end - train_end) as f64;
     let _ = terminal::PB.0.send((pb_label.clone(), pct));
 
